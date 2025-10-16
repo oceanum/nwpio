@@ -16,11 +16,8 @@ class DownloadConfig(BaseModel):
     resolution: str = Field(
         description="Model resolution (e.g., '0p25' for 0.25 degrees)"
     )
-    forecast_time: datetime = Field(
-        description="Forecast initialization time"
-    )
-    cycle: Literal["00z", "06z", "12z", "18z"] = Field(
-        description="Forecast cycle"
+    cycle: datetime = Field(
+        description="Forecast initialization time (cycle)"
     )
     max_lead_time: int = Field(
         description="Maximum lead time in hours",
@@ -43,12 +40,20 @@ class DownloadConfig(BaseModel):
 
     @field_validator("cycle")
     @classmethod
-    def validate_cycle(cls, v: str, info) -> str:
-        """Validate cycle matches product constraints."""
+    def validate_cycle(cls, v: datetime, info) -> datetime:
+        """Validate cycle hour matches product constraints."""
         product = info.data.get("product")
-        if product == "ecmwf-hres" or product == "ecmwf-ens":
-            if v not in ["00z", "12z"]:
-                raise ValueError(f"ECMWF only supports 00z and 12z cycles, got {v}")
+        cycle_hour = v.hour
+        
+        # Validate cycle hour is valid (0, 6, 12, 18)
+        if cycle_hour not in [0, 6, 12, 18]:
+            raise ValueError(f"Cycle hour must be 0, 6, 12, or 18, got {cycle_hour}")
+        
+        # ECMWF only supports 00z and 12z
+        if product in ["ecmwf-hres", "ecmwf-ens"]:
+            if cycle_hour not in [0, 12]:
+                raise ValueError(f"ECMWF only supports 00z and 12z cycles, got {cycle_hour:02d}z")
+        
         return v
 
     @field_validator("max_lead_time")

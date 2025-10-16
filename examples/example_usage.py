@@ -1,7 +1,7 @@
 """Example usage of NWP Download library."""
 
 from datetime import datetime
-from nwp_download import GribDownloader, GribProcessor, DownloadConfig, ProcessConfig
+from nwpio import GribDownloader, GribProcessor, DownloadConfig, ProcessConfig
 
 
 def example_download():

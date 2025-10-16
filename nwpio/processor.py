@@ -8,8 +8,8 @@ import fsspec
 import xarray as xr
 from tqdm import tqdm
 
-from nwp_download.config import ProcessConfig
-from nwp_download.utils import is_gcs_path, parse_gcs_path
+from nwpio.config import ProcessConfig
+from nwpio.utils import is_gcs_path, parse_gcs_path
 
 logger = logging.getLogger(__name__)
 
@@ -172,7 +172,17 @@ class GribProcessor:
 
     def _format_output_path(self, dataset: xr.Dataset) -> str:
         """
-        Format output path with timestamp placeholders.
+        Format output path with cycle datetime placeholders.
+        
+        Supports Python datetime formatting syntax:
+        - {cycle:%Y%m%d} -> 20240101
+        - {cycle:%Hz} -> 00z, 06z, etc.
+        - {cycle:%Y-%m-%d_%H%M} -> 2024-01-01_0000
+        
+        Also supports legacy placeholders for backward compatibility:
+        - {date} -> 20240101
+        - {time} -> 000000
+        - {timestamp} -> custom format from config
 
         Args:
             dataset: xarray Dataset (used to extract time information)
@@ -191,17 +201,27 @@ class GribProcessor:
             first_time = dataset.time.values[0]
             # Convert numpy datetime64 to Python datetime
             import pandas as pd
+            import re
             dt = pd.Timestamp(first_time).to_pydatetime()
             
-            # Replace placeholders
-            replacements = {
+            # Handle {cycle:...} format strings
+            # Find all {cycle:format} patterns and replace them
+            cycle_pattern = r'\{cycle:([^}]+)\}'
+            matches = re.finditer(cycle_pattern, output_path)
+            for match in matches:
+                format_str = match.group(1)
+                formatted_value = dt.strftime(format_str)
+                output_path = output_path.replace(match.group(0), formatted_value)
+            
+            # Handle legacy placeholders for backward compatibility
+            legacy_replacements = {
                 "{timestamp}": dt.strftime(self.config.timestamp_format),
                 "{date}": dt.strftime("%Y%m%d"),
                 "{time}": dt.strftime("%H%M%S"),
                 "{cycle}": f"{dt.hour:02d}z",
             }
             
-            for placeholder, value in replacements.items():
+            for placeholder, value in legacy_replacements.items():
                 output_path = output_path.replace(placeholder, value)
         
         return output_path
@@ -293,7 +313,7 @@ class GribProcessor:
             gcs_path: GCS destination path
         """
         from google.cloud import storage
-        from nwp_download.utils import parse_gcs_path, get_gcs_client
+        from nwpio.utils import parse_gcs_path, get_gcs_client
 
         bucket_name, blob_prefix = parse_gcs_path(gcs_path)
         client = get_gcs_client()

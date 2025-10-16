@@ -7,11 +7,11 @@ download:
   # Resolution: 0p25 (0.25°), 0p50 (0.5°), 1p00 (1.0°)
   resolution: 0p25
   
-  # Forecast initialization time (ISO format)
-  forecast_time: "2024-01-01T00:00:00"
-  
-  # Forecast cycle: 00z, 06z, 12z, or 18z
-  cycle: 00z
+  # Forecast initialization time/cycle (ISO format)
+  # Hour must be 0, 6, 12, or 18 (for ECMWF only 0 or 12)
+  # Examples: "2024-01-01T00:00:00" for 00z cycle
+  #           "2024-01-01T06:00:00" for 06z cycle
+  cycle: "2024-01-01T00:00:00"
   
   # Maximum lead time in hours
   max_lead_time: 120
@@ -46,11 +46,14 @@ process:
     - tp
   
   # Output Zarr archive path
-  # Supports placeholders: {timestamp}, {date}, {time}, {cycle}
+  # Supports Python datetime formatting with {cycle:format} syntax:
   # Examples:
-  #   - gs://bucket/forecast_{date}_{cycle}.zarr  -> forecast_20240101_00z.zarr
-  #   - gs://bucket/forecast_{timestamp}.zarr     -> forecast_20240101_000000.zarr
-  output_path: gs://your-bucket-name/output/forecast_{date}_{cycle}.zarr
+  #   - gs://bucket/gfs_{cycle:%Y%m%d}_{cycle:%Hz}.zarr  -> gfs_20240101_00z.zarr
+  #   - gs://bucket/gfs_{cycle:%Y-%m-%d_%H%M}.zarr       -> gfs_2024-01-01_0000.zarr
+  #   - gs://bucket/gfs_{cycle:%Y%m%d%H}.zarr            -> gfs_2024010100.zarr
+  # 
+  # Legacy placeholders also supported: {date}, {time}, {timestamp}, {cycle}
+  output_path: gs://your-bucket-name/output/forecast_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
   
   # Optional: Custom timestamp format (default: %Y%m%d_%H%M%S)
   # timestamp_format: "%Y%m%d_%H%M%S"

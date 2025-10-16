@@ -7,7 +7,7 @@
 Configuration for downloading GRIB files from cloud archives.
 
 ```python
-from nwp_download import DownloadConfig
+from nwpio import DownloadConfig
 from datetime import datetime
 
 config = DownloadConfig(
@@ -47,7 +47,7 @@ config = DownloadConfig(
 Configuration for processing GRIB files to Zarr format.
 
 ```python
-from nwp_download import ProcessConfig
+from nwpio import ProcessConfig
 
 config = ProcessConfig(
     grib_path="gs://bucket/path/to/grib/",     # Path to GRIB files
@@ -73,34 +73,37 @@ config = ProcessConfig(
 - `chunks` (dict, optional): Chunking specification for Zarr
 - `overwrite` (bool): Whether to overwrite existing Zarr archive (default: False)
 - `timestamp_format` (str): Format string for `{timestamp}` placeholder (default: "%Y%m%d_%H%M%S")
-- `write_local_first` (bool): Write to local temp directory first, then upload to GCS (default: False)
 - `local_temp_dir` (str, optional): Local temporary directory for write_local_first (default: system temp dir)
 
 **Timestamp Examples:**
 
 ```python
-# Using date and cycle
+# Using Python datetime formatting (recommended)
+ProcessConfig(
+    output_path="gs://bucket/gfs_{cycle:%Y%m%d}_{cycle:%Hz}.zarr",
+    # Results in: gfs_20240101_00z.zarr
+)
+
+# More formatting examples
+ProcessConfig(
+    output_path="gs://bucket/gfs_{cycle:%Y-%m-%d_%H%M}.zarr",
+    # Results in: gfs_2024-01-01_0000.zarr
+)
+
+ProcessConfig(
+    output_path="gs://bucket/gfs_{cycle:%Y%m%d%H}.zarr",
+    # Results in: gfs_2024010100.zarr
+)
+
+# Legacy placeholders (still supported for backward compatibility)
 ProcessConfig(
     output_path="gs://bucket/forecast_{date}_{cycle}.zarr",
     # Results in: forecast_20240101_00z.zarr
 )
 
-# Using custom timestamp
-ProcessConfig(
-    output_path="gs://bucket/forecast_{timestamp}.zarr",
-    timestamp_format="%Y-%m-%d_%H%M",
-    # Results in: forecast_2024-01-01_0000.zarr
-)
-
-# Multiple cycles in same directory
-ProcessConfig(
-    output_path="gs://bucket/forecasts/gfs_{date}_{cycle}.zarr",
-    # Results in: forecasts/gfs_20240101_00z.zarr, gfs_20240101_06z.zarr, etc.
-)
-
 # Write locally first to avoid network issues
 ProcessConfig(
-    output_path="gs://bucket/forecast_{date}_{cycle}.zarr",
+    output_path="gs://bucket/gfs_{cycle:%Y%m%d}_{cycle:%Hz}.zarr",
     write_local_first=True,  # Write to temp dir, then upload
     local_temp_dir="/tmp/zarr-staging",  # Optional custom temp dir
 )
@@ -111,7 +114,7 @@ ProcessConfig(
 Combined configuration for download and process workflow.
 
 ```python
-from nwp_download import WorkflowConfig, DownloadConfig, ProcessConfig
+from nwpio import WorkflowConfig, DownloadConfig, ProcessConfig
 from pathlib import Path
 
 # Create from components
@@ -141,7 +144,7 @@ config.to_yaml(Path("config.yaml"))
 Download GRIB files from cloud archives to GCS.
 
 ```python
-from nwp_download import GribDownloader, DownloadConfig
+from nwpio import GribDownloader, DownloadConfig
 
 downloader = GribDownloader(
     config=DownloadConfig(...),
@@ -187,7 +190,7 @@ results = downloader.verify_downloads(downloaded_files)
 Process GRIB files and convert to Zarr format.
 
 ```python
-from nwp_download import GribProcessor, ProcessConfig
+from nwpio import GribProcessor, ProcessConfig
 
 processor = GribProcessor(config=ProcessConfig(...))
 ```
@@ -224,7 +227,7 @@ metadata = processor.inspect_grib_files()
 GFS data source configuration.
 
 ```python
-from nwp_download.sources import GFSSource
+from nwpio.sources import GFSSource
 from datetime import datetime
 
 source = GFSSource(
@@ -253,7 +256,7 @@ file_list = source.get_file_list()
 ECMWF data source configuration.
 
 ```python
-from nwp_download.sources import ECMWFSource
+from nwpio.sources import ECMWFSource
 from datetime import datetime
 
 source = ECMWFSource(
@@ -285,7 +288,7 @@ ENS:
 Factory function to create appropriate data source.
 
 ```python
-from nwp_download.sources import create_data_source
+from nwpio.sources import create_data_source
 from datetime import datetime
 
 source = create_data_source(
@@ -305,7 +308,7 @@ source = create_data_source(
 ### GCS Utilities
 
 ```python
-from nwp_download.utils import (
+from nwpio.utils import (
     parse_gcs_path,
     is_gcs_path,
     gcs_blob_exists,
@@ -351,12 +354,12 @@ success = upload_gcs_file(
 
 ## CLI Commands
 
-### nwp-download download
+### nwpio download
 
 Download GRIB files from cloud archives.
 
 ```bash
-nwp-download download \
+nwpio download \
     --product gfs \
     --resolution 0p25 \
     --time 2024-01-01T00:00:00 \
@@ -384,12 +387,12 @@ nwp-download download \
 - `--max-workers`: Number of parallel workers (default: 10)
 - `--dry-run`: Show what would be downloaded
 
-### nwp-download process
+### nwpio process
 
 Process GRIB files and convert to Zarr.
 
 ```bash
-nwp-download process \
+nwpio process \
     --grib-path gs://bucket/grib/ \
     --variables t2m,u10,v10,tp \
     --output gs://bucket/output.zarr \
@@ -411,12 +414,12 @@ nwp-download process \
 - `--overwrite`: Overwrite existing Zarr archive
 - `--inspect`: Inspect GRIB files without processing
 
-### nwp-download run
+### nwpio run
 
 Run complete workflow from configuration file.
 
 ```bash
-nwp-download run \
+nwpio run \
     --config config.yaml \
     --skip-download \
     --skip-process \
@@ -430,12 +433,12 @@ nwp-download run \
 - `--skip-process`: Skip process step
 - `--max-workers`: Number of parallel workers (default: 10)
 
-### nwp-download init-config
+### nwpio init-config
 
 Generate a sample configuration file.
 
 ```bash
-nwp-download init-config \
+nwpio init-config \
     --product gfs \
     --resolution 0p25 \
     --output config.yaml
@@ -487,7 +490,7 @@ All methods may raise exceptions:
 Example error handling:
 
 ```python
-from nwp_download import GribDownloader, DownloadConfig
+from nwpio import GribDownloader, DownloadConfig
 
 try:
     config = DownloadConfig(...)

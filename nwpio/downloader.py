@@ -8,9 +8,9 @@ from typing import List, Optional
 from google.cloud import storage
 from tqdm import tqdm
 
-from nwp_download.config import DownloadConfig
-from nwp_download.sources import GribFileSpec, create_data_source
-from nwp_download.utils import (
+from nwpio.config import DownloadConfig
+from nwpio.sources import GribFileSpec, create_data_source
+from nwpio.utils import (
     copy_gcs_blob,
     gcs_blob_exists,
     get_gcs_client,
@@ -37,7 +37,6 @@ class GribDownloader:
         self.data_source = create_data_source(
             product=config.product,
             resolution=config.resolution,
-            forecast_time=config.forecast_time,
             cycle=config.cycle,
             max_lead_time=config.max_lead_time,
             source_bucket=config.source_bucket,

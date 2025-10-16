@@ -7,7 +7,7 @@ This guide will help you get started with downloading and processing NWP forecas
 ### Step 1: Install the Library
 
 ```bash
-cd /source/nwp-download
+cd /source/nwpio
 pip install -e .
 ```
 
@@ -28,7 +28,7 @@ brew install eccodes
 **Docker:**
 ```bash
 # Use the provided Dockerfile which includes all dependencies
-docker build -t nwp-download .
+docker build -t nwpio .
 ```
 
 ### Step 3: Set Up Google Cloud Authentication
@@ -47,13 +47,13 @@ export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account-key.json
 
 ```bash
 # 1. Create a sample configuration
-nwp-download init-config --output my-config.yaml
+nwpio init-config --output my-config.yaml
 
 # 2. Edit the configuration with your GCS bucket names
 # Change "your-bucket-name" to your actual bucket
 
 # 3. Preview what will be downloaded (dry run)
-nwp-download download \
+nwpio download \
     --product gfs \
     --resolution 0p25 \
     --time 2024-01-01T00:00:00 \
@@ -64,7 +64,7 @@ nwp-download download \
     --dry-run
 
 # 4. Run the actual download (start small!)
-nwp-download download \
+nwpio download \
     --product gfs \
     --resolution 0p25 \
     --time 2024-01-01T00:00:00 \
@@ -78,7 +78,7 @@ nwp-download download \
 
 ```python
 from datetime import datetime
-from nwp_download import GribDownloader, DownloadConfig
+from nwpio import GribDownloader, DownloadConfig
 
 # Configure download
 config = DownloadConfig(
@@ -104,14 +104,14 @@ print(f"Downloaded {len(files)} files")
 
 ```bash
 # 1. Inspect GRIB files to see available variables
-nwp-download process \
+nwpio process \
     --grib-path gs://YOUR-BUCKET-NAME/gfs/ \
     --variables t2m \
     --output /tmp/test.zarr \
     --inspect
 
 # 2. Process to Zarr
-nwp-download process \
+nwpio process \
     --grib-path gs://YOUR-BUCKET-NAME/gfs/ \
     --variables t2m,u10,v10 \
     --output gs://YOUR-BUCKET-NAME/output.zarr
@@ -120,7 +120,7 @@ nwp-download process \
 ### Using Python
 
 ```python
-from nwp_download import GribProcessor, ProcessConfig
+from nwpio import GribProcessor, ProcessConfig
 
 # Configure processing
 config = ProcessConfig(
@@ -143,18 +143,18 @@ print(f"Created Zarr archive: {output}")
 
 ```bash
 # 1. Create and edit config
-nwp-download init-config --output workflow.yaml
+nwpio init-config --output workflow.yaml
 vim workflow.yaml  # Edit with your settings
 
 # 2. Run complete workflow
-nwp-download run --config workflow.yaml
+nwpio run --config workflow.yaml
 ```
 
 ### Using Python
 
 ```python
 from datetime import datetime
-from nwp_download import (
+from nwpio import (
     GribDownloader, GribProcessor,
     DownloadConfig, ProcessConfig
 )
@@ -310,7 +310,7 @@ config = ProcessConfig(
 **Solution:**
 ```bash
 # First inspect to see available variables
-nwp-download process \
+nwpio process \
     --grib-path gs://YOUR-BUCKET-NAME/gfs/ \
     --variables t2m \
     --output /tmp/test.zarr \

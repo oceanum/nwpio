@@ -22,8 +22,7 @@ class DataSource:
         self,
         product: str,
         resolution: str,
-        forecast_time: datetime,
-        cycle: str,
+        cycle: datetime,
         max_lead_time: int,
         source_bucket: str,
         destination_bucket: str,
@@ -31,8 +30,7 @@ class DataSource:
     ):
         self.product = product
         self.resolution = resolution
-        self.forecast_time = forecast_time
-        self.cycle = cycle
+        self.cycle = cycle  # This is now a datetime representing the forecast initialization time
         self.max_lead_time = max_lead_time
         self.source_bucket = source_bucket
         self.destination_bucket = destination_bucket
@@ -56,11 +54,11 @@ class GFSSource(DataSource):
     def get_file_list(self) -> List[GribFileSpec]:
         """Generate list of GFS GRIB files to download."""
         files = []
-        cycle_hour = int(self.cycle.replace("z", ""))
+        cycle_hour = self.cycle.hour
 
         for lead_time in self._generate_lead_times():
             # GFS path pattern: gfs.YYYYMMDD/HH/atmos/gfs.tHHz.pgrb2.RES.fFFF
-            date_str = self.forecast_time.strftime("%Y%m%d")
+            date_str = self.cycle.strftime("%Y%m%d")
             cycle_str = f"{cycle_hour:02d}"
             lead_str = f"{lead_time:03d}"
 
@@ -80,7 +78,7 @@ class GFSSource(DataSource):
                     source_path=source_path,
                     destination_path=dest_path,
                     lead_time=lead_time,
-                    forecast_time=self.forecast_time + timedelta(hours=lead_time),
+                    forecast_time=self.cycle + timedelta(hours=lead_time),
                 )
             )
 
@@ -107,10 +105,10 @@ class ECMWFSource(DataSource):
     def get_file_list(self) -> List[GribFileSpec]:
         """Generate list of ECMWF GRIB files to download."""
         files = []
-        cycle_hour = int(self.cycle.replace("z", ""))
+        cycle_hour = self.cycle.hour
 
         for lead_time in self._generate_lead_times():
-            date_str = self.forecast_time.strftime("%Y%m%d")
+            date_str = self.cycle.strftime("%Y%m%d")
             cycle_str = f"{cycle_hour:02d}"
             lead_str = f"{lead_time:03d}"
 
@@ -134,7 +132,7 @@ class ECMWFSource(DataSource):
                     source_path=source_path,
                     destination_path=dest_path,
                     lead_time=lead_time,
-                    forecast_time=self.forecast_time + timedelta(hours=lead_time),
+                    forecast_time=self.cycle + timedelta(hours=lead_time),
                 )
             )
 
@@ -165,8 +163,7 @@ class ECMWFSource(DataSource):
 def create_data_source(
     product: str,
     resolution: str,
-    forecast_time: datetime,
-    cycle: str,
+    cycle: datetime,
     max_lead_time: int,
     source_bucket: str,
     destination_bucket: str,
@@ -177,7 +174,6 @@ def create_data_source(
         return GFSSource(
             product=product,
             resolution=resolution,
-            forecast_time=forecast_time,
             cycle=cycle,
             max_lead_time=max_lead_time,
             source_bucket=source_bucket,
@@ -188,7 +184,6 @@ def create_data_source(
         return ECMWFSource(
             product=product,
             resolution=resolution,
-            forecast_time=forecast_time,
             cycle=cycle,
             max_lead_time=max_lead_time,
             source_bucket=source_bucket,

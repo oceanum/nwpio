@@ -7,8 +7,8 @@ A production-ready Python library for downloading and processing Numerical Weath
 ## Project Structure
 
 ```
-nwp-download/
-├── nwp_download/              # Main library package
+nwpio/
+├── nwpio/              # Main library package
 │   ├── __init__.py           # Package exports
 │   ├── config.py             # Pydantic configuration models
 │   ├── sources.py            # Data source definitions (GFS/ECMWF)
@@ -107,22 +107,22 @@ nwp-download/
 ### 1. Command Line
 ```bash
 # Generate config
-nwp-download init-config --output config.yaml
+nwpio init-config --output config.yaml
 
 # Run workflow
-nwp-download run --config config.yaml
+nwpio run --config config.yaml
 
 # Download only
-nwp-download download --product gfs --resolution 0p25 ...
+nwpio download --product gfs --resolution 0p25 ...
 
 # Process only
-nwp-download process --grib-path gs://... --variables t2m,u10,v10
+nwpio process --grib-path gs://... --variables t2m,u10,v10
 ```
 
 ### 2. Python API
 ```python
-from nwp_download import GribDownloader, GribProcessor
-from nwp_download import DownloadConfig, ProcessConfig
+from nwpio import GribDownloader, GribProcessor
+from nwpio import DownloadConfig, ProcessConfig
 
 # Download
 config = DownloadConfig(...)
@@ -140,13 +140,13 @@ processor.process()
 ### Local Development
 ```bash
 pip install -e .
-nwp-download --help
+nwpio --help
 ```
 
 ### Docker
 ```bash
-docker build -t nwp-download .
-docker run nwp-download run --config /config/config.yaml
+docker build -t nwpio .
+docker run nwpio run --config /config/config.yaml
 ```
 
 ## Configuration Example

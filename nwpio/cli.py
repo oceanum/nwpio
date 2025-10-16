@@ -8,8 +8,8 @@ from typing import Optional
 
 import click
 
-from nwp_download import GribDownloader, GribProcessor
-from nwp_download.config import DownloadConfig, ProcessConfig, WorkflowConfig
+from nwpio import GribDownloader, GribProcessor
+from nwpio.config import DownloadConfig, ProcessConfig, WorkflowConfig
 
 # Configure logging
 logging.basicConfig(
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 @click.group()
 @click.version_option(version="0.1.0")
 def main():
-    """NWP Download - Download and process NWP forecast data."""
+    """NWPIO - Download and process NWP forecast data."""
     pass
 
 
@@ -41,16 +41,10 @@ def main():
     help="Model resolution (e.g., 0p25 for 0.25 degrees)",
 )
 @click.option(
-    "--time",
+    "--cycle",
     type=str,
     required=True,
-    help="Forecast initialization time (ISO format: YYYY-MM-DDTHH:MM:SS)",
-)
-@click.option(
-    "--cycle",
-    type=click.Choice(["00z", "06z", "12z", "18z"]),
-    required=True,
-    help="Forecast cycle",
+    help="Forecast initialization time/cycle (ISO format: YYYY-MM-DDTHH:MM:SS, hour must be 0, 6, 12, or 18)",
 )
 @click.option(
     "--max-lead-time",
@@ -95,7 +89,6 @@ def main():
 def download(
     product: str,
     resolution: str,
-    time: str,
     cycle: str,
     max_lead_time: int,
     source_bucket: str,
@@ -107,15 +100,14 @@ def download(
 ):
     """Download GRIB files from cloud archives."""
     try:
-        # Parse forecast time
-        forecast_time = datetime.fromisoformat(time)
+        # Parse cycle time
+        cycle_time = datetime.fromisoformat(cycle)
 
         # Create configuration
         config = DownloadConfig(
             product=product,
             resolution=resolution,
-            forecast_time=forecast_time,
-            cycle=cycle,
+            cycle=cycle_time,
             max_lead_time=max_lead_time,
             source_bucket=source_bucket,
             destination_bucket=dest_bucket,
@@ -346,8 +338,7 @@ def init_config(product: str, resolution: str, output: Path):
         download=DownloadConfig(
             product=product,
             resolution=resolution,
-            forecast_time=datetime(2024, 1, 1, 0),
-            cycle="00z",
+            cycle=datetime(2024, 1, 1, 0),
             max_lead_time=120,
             source_bucket="gcp-public-data-arco-era5",
             destination_bucket="your-bucket-name",
@@ -365,7 +356,7 @@ def init_config(product: str, resolution: str, output: Path):
     config.to_yaml(output)
     click.echo(f"Created sample configuration file: {output}")
     click.echo("\nEdit this file with your specific settings and run:")
-    click.echo(f"  nwp-download run --config {output}")
+    click.echo(f"  nwpio run --config {output}")
 
 
 if __name__ == "__main__":

@@ -26,7 +26,7 @@ pip install -e ".[dev]"
 ### Download GRIB files
 
 ```python
-from nwp_download import GribDownloader, DownloadConfig
+from nwpio import GribDownloader, DownloadConfig
 from datetime import datetime
 
 config = DownloadConfig(
@@ -46,7 +46,7 @@ downloaded_files = downloader.download()
 ### Process GRIB to Zarr
 
 ```python
-from nwp_download import GribProcessor, ProcessConfig
+from nwpio import GribProcessor, ProcessConfig
 
 config = ProcessConfig(
     grib_files=downloaded_files,
@@ -62,7 +62,7 @@ processor.process()
 
 ```bash
 # Download GRIB files
-nwp-download download \
+nwpio download \
     --product gfs \
     --resolution 0p25 \
     --time 2024-01-01T00:00:00 \
@@ -72,13 +72,13 @@ nwp-download download \
     --dest-bucket your-bucket-name
 
 # Process GRIB to Zarr
-nwp-download process \
+nwpio process \
     --grib-path gs://your-bucket/grib/ \
     --variables t2m,u10,v10,tp \
     --output gs://your-bucket/output.zarr
 
 # Combined workflow
-nwp-download run \
+nwpio run \
     --config config.yaml
 ```
 
@@ -120,7 +120,7 @@ process:
 ## Architecture
 
 ```
-nwp_download/
+nwpio/
 ├── __init__.py
 ├── config.py          # Configuration models using Pydantic
 ├── sources.py         # Data source definitions for GFS/ECMWF

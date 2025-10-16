@@ -14,7 +14,7 @@
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd nwp-download
+cd nwpio
 
 # Create virtual environment
 python -m venv venv
@@ -24,13 +24,13 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -e ".[dev]"
 
 # Verify installation
-nwp-download --version
+nwpio --version
 ```
 
 ### Production Installation
 
 ```bash
-pip install nwp-download
+pip install nwpio
 ```
 
 ## Google Cloud Setup
@@ -49,20 +49,20 @@ gsutil mb -l us-central1 gs://your-nwp-zarr-bucket
 
 ```bash
 # Create service account
-gcloud iam service-accounts create nwp-download \
+gcloud iam service-accounts create nwpio \
     --display-name="NWP Download Service Account"
 
 # Grant storage permissions
 gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
-    --member="serviceAccount:nwp-download@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+    --member="serviceAccount:nwpio@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
     --role="roles/storage.objectAdmin"
 
 # Create and download key
-gcloud iam service-accounts keys create nwp-download-key.json \
-    --iam-account=nwp-download@YOUR_PROJECT_ID.iam.gserviceaccount.com
+gcloud iam service-accounts keys create nwpio-key.json \
+    --iam-account=nwpio@YOUR_PROJECT_ID.iam.gserviceaccount.com
 
 # Set environment variable
-export GOOGLE_APPLICATION_CREDENTIALS=/path/to/nwp-download-key.json
+export GOOGLE_APPLICATION_CREDENTIALS=/path/to/nwpio-key.json
 ```
 
 ### 3. Configure Access to Public Data
@@ -71,7 +71,7 @@ Ensure your service account has read access to public NWP data buckets:
 
 ```bash
 # For GFS data (example - adjust based on actual bucket)
-gsutil iam ch serviceAccount:nwp-download@YOUR_PROJECT_ID.iam.gserviceaccount.com:objectViewer \
+gsutil iam ch serviceAccount:nwpio@YOUR_PROJECT_ID.iam.gserviceaccount.com:objectViewer \
     gs://gcp-public-data-arco-era5
 ```
 
@@ -81,7 +81,7 @@ gsutil iam ch serviceAccount:nwp-download@YOUR_PROJECT_ID.iam.gserviceaccount.co
 
 ```bash
 # Generate sample configuration
-nwp-download init-config --output config.yaml
+nwpio init-config --output config.yaml
 
 # Edit configuration
 vim config.yaml
@@ -119,10 +119,10 @@ cleanup_grib: false
 
 ```bash
 # Run complete workflow
-nwp-download run --config config.yaml
+nwpio run --config config.yaml
 
 # Download only
-nwp-download download \
+nwpio download \
     --product gfs \
     --resolution 0p25 \
     --time 2024-01-01T00:00:00 \
@@ -132,7 +132,7 @@ nwp-download download \
     --dest-bucket your-nwp-data-bucket
 
 # Process only
-nwp-download process \
+nwpio process \
     --grib-path gs://your-nwp-data-bucket/gfs/ \
     --variables t2m,u10,v10,tp \
     --output gs://your-nwp-zarr-bucket/forecast.zarr
@@ -142,7 +142,7 @@ nwp-download process \
 
 ```bash
 # Preview downloads without executing
-nwp-download download \
+nwpio download \
     --product gfs \
     --resolution 0p25 \
     --time 2024-01-01T00:00:00 \
@@ -157,14 +157,14 @@ nwp-download download \
 
 ```bash
 # Build Docker image
-docker build -t nwp-download:latest .
+docker build -t nwpio:latest .
 
 # Run container
 docker run \
     -v /path/to/config.yaml:/config/config.yaml \
     -v /path/to/credentials.json:/credentials.json \
     -e GOOGLE_APPLICATION_CREDENTIALS=/credentials.json \
-    nwp-download:latest run --config /config/config.yaml
+    nwpio:latest run --config /config/config.yaml
 ```
 
 
@@ -174,7 +174,7 @@ docker run \
 
 ```bash
 # Local logs
-tail -f /var/log/nwp-download.log
+tail -f /var/log/nwpio.log
 
 # GCP Cloud Logging (if using GCP)
 gcloud logging read "resource.type=cloud_run_job" \
@@ -195,7 +195,7 @@ gcloud auth application-default login
 # Check service account permissions
 gcloud projects get-iam-policy YOUR_PROJECT_ID \
     --flatten="bindings[].members" \
-    --filter="bindings.members:serviceAccount:nwp-download@*"
+    --filter="bindings.members:serviceAccount:nwpio@*"
 ```
 
 #### 2. GRIB File Not Found
@@ -221,7 +221,7 @@ gcloud projects get-iam-policy YOUR_PROJECT_ID \
 ```bash
 # Enable debug logging
 export LOG_LEVEL=DEBUG
-nwp-download run --config config.yaml
+nwpio run --config config.yaml
 ```
 
 ## Performance Tuning
@@ -299,11 +299,11 @@ gsutil -m rsync -r gs://your-nwp-zarr-bucket gs://your-backup-bucket/zarr/
 
 ```bash
 # Update library
-pip install --upgrade nwp-download
+pip install --upgrade nwpio
 
 # Update dependencies
 pip install --upgrade -r requirements.txt
 
 # Rebuild Docker image
-docker build -t nwp-download:latest .
+docker build -t nwpio:latest .
 ```

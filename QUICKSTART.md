@@ -9,7 +9,7 @@ Get started with NWP Download in 5 minutes!
 pip install -e .
 
 # Verify installation
-nwp-download --version
+nwpio --version
 ```
 
 ## Setup Google Cloud
@@ -27,7 +27,7 @@ export GOOGLE_APPLICATION_CREDENTIALS=/path/to/credentials.json
 ### 1. Generate Configuration
 
 ```bash
-nwp-download init-config --output my-config.yaml
+nwpio init-config --output my-config.yaml
 ```
 
 ### 2. Edit Configuration
@@ -59,7 +59,7 @@ process:
 
 ```bash
 # Dry run to preview
-nwp-download download \
+nwpio download \
     --product gfs \
     --resolution 0p25 \
     --time 2024-01-01T00:00:00 \
@@ -70,14 +70,14 @@ nwp-download download \
     --dry-run
 
 # Run complete workflow
-nwp-download run --config my-config.yaml
+nwpio run --config my-config.yaml
 ```
 
 ## Python API
 
 ```python
 from datetime import datetime
-from nwp_download import GribDownloader, GribProcessor, DownloadConfig, ProcessConfig
+from nwpio import GribDownloader, GribProcessor, DownloadConfig, ProcessConfig
 
 # Download GRIB files
 download_config = DownloadConfig(
@@ -108,13 +108,13 @@ processor.process()
 
 ```bash
 # Build image
-docker build -t nwp-download .
+docker build -t nwpio .
 
 # Run
 docker run \
     -v $(pwd)/config.yaml:/config/config.yaml \
     -v ~/.config/gcloud:/root/.config/gcloud \
-    nwp-download run --config /config/config.yaml
+    nwpio run --config /config/config.yaml
 ```
 
 ## Next Steps

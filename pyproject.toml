@@ -3,7 +3,7 @@ requires = ["setuptools>=65.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "nwp-download"
+name = "nwpio"
 version = "0.1.0"
 description = "Download and process NWP forecast data from GFS and ECMWF"
 readme = "README.md"
@@ -12,7 +12,7 @@ license = {text = "MIT"}
 authors = [
     {name = "Your Name", email = "your.email@example.com"}
 ]
-keywords = ["weather", "forecast", "gfs", "ecmwf", "grib", "zarr"]
+keywords = ["weather", "forecast", "gfs", "ecmwf", "grib", "zarr", "nwp"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
@@ -48,11 +48,11 @@ dev = [
 ]
 
 [project.scripts]
-nwp-download = "nwp_download.cli:main"
+nwpio = "nwpio.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["nwp_download*"]
+include = ["nwpio*"]
 
 [tool.black]
 line-length = 100

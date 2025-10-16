@@ -116,7 +116,7 @@ def download_ecmwf_to_gcs(date, time, step, bucket_name):
 
 ## Updating the Library for Your Data Source
 
-Once you have your data in GCS, update the path patterns in `nwp_download/sources.py`:
+Once you have your data in GCS, update the path patterns in `nwpio/sources.py`:
 
 ### For GFS
 
@@ -173,7 +173,7 @@ for hour in $(seq -f "%03g" 0 3 120); do
 done
 
 echo "=== Step 2: Process to Zarr ==="
-nwp-download process \
+nwpio process \
     --grib-path gs://${BUCKET}/gfs/${DATE}/${CYCLE}/ \
     --variables t2m,u10,v10,tp \
     --output gs://${BUCKET}/zarr/gfs_${DATE}_${CYCLE}.zarr
