@@ -41,6 +41,29 @@ class DataSource:
     def get_file_list(self) -> List[GribFileSpec]:
         """Generate list of GRIB files to download."""
         raise NotImplementedError
+    
+    def _generate_lead_times(self) -> List[int]:
+        """Generate lead times based on product intervals."""
+        raise NotImplementedError
+    
+    def get_next_lead_time(self) -> int:
+        """
+        Get the next lead time after max_lead_time.
+        Used to verify the last required file is fully uploaded.
+        
+        Returns:
+            Next lead time in hours, or None if max_lead_time is the last available
+        """
+        all_lead_times = self._generate_lead_times()
+        
+        # Find the next lead time after max_lead_time
+        for lt in all_lead_times:
+            if lt > self.max_lead_time:
+                return lt
+        
+        # If max_lead_time is already at the end, calculate what the next would be
+        # based on the interval pattern
+        return None
 
 
 class GFSSource(DataSource):
@@ -106,6 +129,29 @@ class GFSSource(DataSource):
             max_lt = min(end, self.max_lead_time)
             lead_times.extend(range(start, max_lt + 1, interval))
         return sorted(set(lead_times))
+    
+    def get_next_lead_time(self) -> int:
+        """Get the next lead time after max_lead_time for validation."""
+        # Find which interval range max_lead_time falls into
+        for (start, end), interval in self.LEAD_TIME_INTERVALS.items():
+            if start <= self.max_lead_time < end:
+                # Calculate next lead time in this interval
+                next_lt = self.max_lead_time + interval
+                # Make sure it aligns with the interval grid
+                offset = (self.max_lead_time - start) % interval
+                if offset != 0:
+                    next_lt = self.max_lead_time + (interval - offset)
+                return min(next_lt, end)
+            elif self.max_lead_time == end:
+                # We're at the boundary, move to next interval
+                next_intervals = [
+                    (s, e, i) for (s, e), i in self.LEAD_TIME_INTERVALS.items() 
+                    if s == end
+                ]
+                if next_intervals:
+                    return next_intervals[0][0]  # Start of next interval
+                return None
+        return None
 
 
 class ECMWFSource(DataSource):
@@ -186,6 +232,29 @@ class ECMWFSource(DataSource):
                 # 3-hourly from 93h onwards
                 lead_times.extend(range(93, min(self.max_lead_time + 1, 241), 3))
                 return lead_times
+    
+    def get_next_lead_time(self) -> int:
+        """Get the next lead time after max_lead_time for validation."""
+        if self.is_ensemble:
+            # ENS: 3h up to 144h, then 6h
+            if self.max_lead_time < 144:
+                return min(self.max_lead_time + 3, 144)
+            elif self.max_lead_time == 144:
+                return 150  # First 6-hourly step
+            elif self.max_lead_time < 360:
+                return min(self.max_lead_time + 6, 360)
+            else:
+                return None
+        else:
+            # HRES: 1h up to 90h, then 3h
+            if self.max_lead_time < 90:
+                return min(self.max_lead_time + 1, 90)
+            elif self.max_lead_time == 90:
+                return 93  # First 3-hourly step
+            elif self.max_lead_time < 240:
+                return min(self.max_lead_time + 3, 240)
+            else:
+                return None
 
 
 def create_data_source(

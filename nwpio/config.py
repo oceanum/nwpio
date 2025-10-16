@@ -31,6 +31,11 @@ class DownloadConfig(BaseModel):
         description="Local directory to download files to (if destination_bucket is None)"
     )
     overwrite: bool = Field(default=False, description="Overwrite existing files")
+    validate_before_download: bool = Field(
+        default=True,
+        description="Validate all files are available before starting download. "
+                    "Raises exception if files are missing (fail fast for retry logic)."
+    )
 
     @field_validator("cycle")
     @classmethod

@@ -291,6 +291,12 @@ def run(
             downloader = GribDownloader(
                 workflow_config.download, max_workers=max_workers
             )
+            
+            # Validate file availability before downloading
+            if workflow_config.download.validate_before_download:
+                click.echo("Validating file availability...")
+                downloader.validate_availability()  # Raises FileNotFoundError if missing
+            
             downloaded_files = downloader.download()
             click.echo(f"Downloaded {len(downloaded_files)} files\n")
 
