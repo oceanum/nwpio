@@ -1,0 +1,23 @@
+cleanup_grib: false
+download:
+  cycle: '2024-01-01T00:00:00'
+  destination_bucket: oceanum-data-dev
+  destination_prefix: nwp-data/
+  max_lead_time: 6
+  overwrite: false
+  product: gfs
+  resolution: 0p25
+  source_bucket: global-forecast-system
+process:
+  chunks: null
+  filter_by_keys: null
+  grib_path: gs://oceanum-data-dev/nwp-data/
+  output_path: gs://oceanum-data-dev/forecasts/gfs_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
+  overwrite: false
+  write_local_first: true
+  local_temp_dir: null
+  variables:
+  # - t2m
+  - u10
+  - v10
+  # - tp

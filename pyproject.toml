@@ -24,27 +24,32 @@ classifiers = [
 ]
 
 dependencies = [
-    "google-cloud-storage>=2.10.0",
-    "xarray>=2023.1.0",
-    "cfgrib>=0.9.10",
-    "zarr>=2.16.0",
-    "click>=8.1.0",
-    "pydantic>=2.0.0",
-    "pydantic-settings>=2.0.0",
-    "python-dateutil>=2.8.0",
-    "tqdm>=4.65.0",
-    "fsspec>=2023.1.0",
-    "gcsfs>=2023.1.0",
-    "pyyaml>=6.0",
+    "google-cloud-storage,
+    "xarray,
+    "cfgrib,
+    "zarr<3",
+    "click,
+    "pydantic,
+    "pydantic-settings,
+    "python-dateutil,
+    "tqdm,
+    "fsspec,
+    "gcsfs,
+    "pyyaml,
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "black>=23.0.0",
-    "ruff>=0.1.0",
-    "mypy>=1.0.0",
+    "pytest,
+    "pytest-cov,
+    "black,
+    "ruff,
+    "mypy,
+]
+docs = [
+    "mkdocs,
+    "mkdocs-material,
+    "mkdocstrings[python],
 ]
 
 [project.scripts]

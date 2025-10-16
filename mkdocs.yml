@@ -1,0 +1,95 @@
+site_name: NWPIO Documentation
+site_description: Download and process NWP forecast data from GFS and ECMWF
+site_author: NWPIO Contributors
+site_url: https://nwpio.readthedocs.io
+
+repo_name: nwpio
+repo_url: https://github.com/yourusername/nwpio
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    # Light mode
+    - scheme: default
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - scheme: slate
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+      - Configuration: getting-started/configuration.md
+  - User Guide:
+      - Downloading Data: guide/downloading.md
+      - Processing to Zarr: guide/processing.md
+      - Complete Workflow: guide/workflow.md
+      - Data Sources: guide/data-sources.md
+  - API Reference:
+      - Overview: api/overview.md
+      - Configuration: api/config.md
+      - Downloader: api/downloader.md
+      - Processor: api/processor.md
+      - CLI: api/cli.md
+  - Advanced:
+      - Output Path Formatting: advanced/formatting.md
+      - Write Local First: advanced/write-local-first.md
+      - Performance Tips: advanced/performance.md
+  - About:
+      - Changelog: about/changelog.md
+      - Contributing: about/contributing.md
+      - License: about/license.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/yourusername/nwpio
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/nwpio/

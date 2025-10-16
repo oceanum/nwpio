@@ -50,3 +50,9 @@ htmlcov/
 # GCS credentials
 *.json
 !**/example*.json
+site/
+.cache/
+
+# Working documents
+CHANGES.md
+Optimize*.md
