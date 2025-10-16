@@ -190,6 +190,29 @@ def download(
     help="Local temporary directory for write-local-first",
 )
 @click.option(
+    "--max-upload-workers",
+    type=int,
+    default=16,
+    help="Maximum number of parallel workers for uploading to GCS",
+)
+@click.option(
+    "--upload-timeout",
+    type=int,
+    default=600,
+    help="Timeout in seconds for individual file uploads to GCS",
+)
+@click.option(
+    "--upload-max-retries",
+    type=int,
+    default=3,
+    help="Maximum number of retries for failed uploads",
+)
+@click.option(
+    "--no-verify-upload",
+    is_flag=True,
+    help="Skip upload verification (not recommended)",
+)
+@click.option(
     "--inspect",
     is_flag=True,
     help="Inspect GRIB files without processing",
@@ -203,6 +226,10 @@ def process(
     overwrite: bool,
     write_local_first: bool,
     local_temp_dir: Optional[str],
+    max_upload_workers: int,
+    upload_timeout: int,
+    upload_max_retries: int,
+    no_verify_upload: bool,
     inspect: bool,
 ):
     """Process GRIB files and convert to Zarr."""
@@ -226,6 +253,10 @@ def process(
             overwrite=overwrite,
             write_local_first=write_local_first,
             local_temp_dir=local_temp_dir,
+            max_upload_workers=max_upload_workers,
+            upload_timeout=upload_timeout,
+            upload_max_retries=upload_max_retries,
+            verify_upload=not no_verify_upload,
         )
 
         # Create processor
@@ -257,6 +288,12 @@ def process(
     help="Path to YAML configuration file",
 )
 @click.option(
+    "--cycle",
+    type=str,
+    envvar="CYCLE",
+    help="Forecast cycle (ISO format: YYYY-MM-DDTHH:MM:SS). Reads from $CYCLE if not provided. Overrides config file.",
+)
+@click.option(
     "--skip-download",
     is_flag=True,
     help="Skip download step",
@@ -274,6 +311,7 @@ def process(
 )
 def run(
     config: Path,
+    cycle: str,
     skip_download: bool,
     skip_process: bool,
     max_workers: int,
@@ -282,6 +320,20 @@ def run(
     try:
         # Load configuration
         workflow_config = WorkflowConfig.from_yaml(config)
+        
+        # Set cycle from CLI/env or validate it's in config
+        if cycle:
+            from datetime import datetime
+            workflow_config.download.cycle = datetime.fromisoformat(cycle)
+        elif workflow_config.download.cycle is None:
+            raise click.ClickException(
+                "Cycle not specified. Provide via --cycle argument, $CYCLE environment variable, or in config file."
+            )
+
+        # Log workflow information
+        logger.info(f"Starting workflow for cycle: {workflow_config.download.cycle}")
+        logger.info(f"Product: {workflow_config.download.product} {workflow_config.download.resolution}")
+        logger.info(f"Max lead time: {workflow_config.download.max_lead_time}h")
 
         downloaded_files = []
 

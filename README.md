@@ -6,6 +6,7 @@ A Python library for downloading and processing Numerical Weather Prediction (NW
 
 - **Download GRIB files** from cloud archives (GCS) for NWP models such as GFS and ECMWF
 - **File availability validation** - Ensures all files are complete before downloading (see [FILE_VALIDATION.md](FILE_VALIDATION.md))
+- **Flexible cycle configuration** - Set via CLI (`--cycle`), environment (`$CYCLE`), or config file (see [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md))
 - **Multi-process workflow** - Download once, process multiple variable sets efficiently
 - **Parallel operations** - Fast downloads (8 workers) and uploads (16 workers)
 - **Flexible configuration** for product type, resolution, forecast cycles, and lead times

@@ -16,7 +16,10 @@ class DownloadConfig(BaseModel):
     resolution: str = Field(
         description="Model resolution (e.g., '0p25' for 0.25 degrees)"
     )
-    cycle: datetime = Field(description="Forecast initialization time (cycle)")
+    cycle: Optional[datetime] = Field(
+        default=None,
+        description="Forecast initialization time (cycle). Can be set via CLI --cycle or $CYCLE environment variable."
+    )
     max_lead_time: int = Field(description="Maximum lead time in hours", gt=0)
     source_bucket: str = Field(description="Source GCS bucket containing GRIB files")
     destination_bucket: Optional[str] = Field(
@@ -110,6 +113,18 @@ class ProcessConfig(BaseModel):
     max_upload_workers: int = Field(
         default=16,
         description="Maximum number of parallel workers for uploading to GCS",
+    )
+    upload_timeout: int = Field(
+        default=600,
+        description="Timeout in seconds for individual file uploads to GCS (default: 600s)",
+    )
+    upload_max_retries: int = Field(
+        default=3,
+        description="Maximum number of retries for failed uploads (default: 3)",
+    )
+    verify_upload: bool = Field(
+        default=True,
+        description="Verify all files were uploaded successfully after upload completes",
     )
 
 

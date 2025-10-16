@@ -1,13 +1,16 @@
-# Production GFS Download Configuration
+# Example GFS Download Configuration
 # Downloads GFS 0.25° forecast data and creates Zarr archives
+# 
+# This config has a default cycle for testing.
+# For production, use config-production.yaml which requires cycle via CLI/env.
 
 cleanup_grib: false  # Keep GRIB files after processing
 
 download:
-  cycle: '2025-10-15T00:00:00'  # Set this dynamically in your workflow
+  cycle: '2025-10-15T00:00:00'  # Default for testing (override with --cycle or $CYCLE)
   destination_bucket: null  # Download to local disk
   local_download_dir: /tmp/nwp-data
-  max_lead_time: 3  # 10 days (0-120h hourly, 123-240h 3-hourly)
+  max_lead_time: 3  # Short lead time for testing
   overwrite: false
   product: gfs
   resolution: 0p25

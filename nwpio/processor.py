@@ -57,7 +57,8 @@ class GribProcessor:
                 if ds is not None:
                     datasets.append(ds)
             except Exception as e:
-                logger.error(f"Failed to load {grib_file}: {e}")
+                raise RuntimeError(f"Failed to load {grib_file}: {e}")
+            #import ipdb; ipdb.set_trace()
 
         if not datasets:
             raise ValueError("No datasets could be loaded from GRIB files")
@@ -191,6 +192,7 @@ class GribProcessor:
                     ds = xr.open_dataset(
                         tmp_path,
                         engine="cfgrib",
+                        chunks="auto",
                         backend_kwargs=backend_kwargs,
                     )
                     # Load into memory so we can delete the temp file
@@ -203,6 +205,7 @@ class GribProcessor:
                 ds = xr.open_dataset(
                     file_path,
                     engine="cfgrib",
+                    chunks="auto",
                     backend_kwargs=backend_kwargs,
                 )
 
@@ -424,7 +427,7 @@ class GribProcessor:
             logger.info(f"Uploading to GCS: {gcs_path}")
             self._upload_zarr_to_gcs(local_zarr_path, gcs_path)
 
-            logger.info("Upload complete")
+            logger.info("Upload complete successfully")
 
         finally:
             # Clean up temp directory
@@ -433,14 +436,18 @@ class GribProcessor:
 
     def _upload_zarr_to_gcs(self, local_zarr_path: Path, gcs_path: str) -> None:
         """
-        Upload a local Zarr archive to GCS using parallel uploads.
+        Upload a local Zarr archive to GCS using parallel uploads with retry logic.
 
         Args:
             local_zarr_path: Local path to Zarr archive
             gcs_path: GCS destination path
+
+        Raises:
+            RuntimeError: If any files fail to upload after retries
         """
         from concurrent.futures import ThreadPoolExecutor, as_completed
         from nwpio.utils import get_gcs_client
+        import time
 
         bucket_name, blob_prefix = parse_gcs_path(gcs_path)
         client = get_gcs_client()
@@ -452,28 +459,113 @@ class GribProcessor:
 
         from tqdm import tqdm
 
-        def upload_file(local_file: Path) -> str:
-            """Upload a single file to GCS."""
+        def upload_file_with_retry(local_file: Path) -> tuple[str, bool, str]:
+            """
+            Upload a single file to GCS with retry logic.
+            
+            Returns:
+                Tuple of (blob_name, success, error_message)
+            """
             relative_path = local_file.relative_to(local_zarr_path)
             blob_name = f"{blob_prefix}/{relative_path}".replace("\\", "/")
-            blob = bucket.blob(blob_name)
-            blob.upload_from_filename(str(local_file))
-            return blob_name
+            blob = bucket.blob(blob_name, chunk_size=5 * 1024 * 1024)  # 5MB chunks for resumable upload
+            
+            max_retries = self.config.upload_max_retries
+            timeout = self.config.upload_timeout
+            
+            for attempt in range(max_retries):
+                try:
+                    blob.upload_from_filename(
+                        str(local_file),
+                        timeout=timeout,
+                        checksum="md5",
+                    )
+                    return blob_name, True, ""
+                except Exception as e:
+                    error_msg = str(e)
+                    if attempt < max_retries - 1:
+                        # Exponential backoff: 2^attempt seconds
+                        wait_time = 2 ** attempt
+                        logger.warning(
+                            f"Upload failed for {relative_path} (attempt {attempt + 1}/{max_retries}): {error_msg}. "
+                            f"Retrying in {wait_time}s..."
+                        )
+                        time.sleep(wait_time)
+                    else:
+                        logger.error(
+                            f"Upload failed for {relative_path} after {max_retries} attempts: {error_msg}"
+                        )
+                        return blob_name, False, error_msg
+            
+            return blob_name, False, "Max retries exceeded"
 
         # Upload files in parallel
         max_workers = self.config.max_upload_workers
-        logger.info(f"Using {max_workers} parallel workers for upload")
+        logger.info(f"Using {max_workers} parallel workers for upload (timeout: {self.config.upload_timeout}s)")
+        
+        failed_uploads = []
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {executor.submit(upload_file, f): f for f in zarr_files}
+            futures = {executor.submit(upload_file_with_retry, f): f for f in zarr_files}
 
             with tqdm(total=len(zarr_files), desc="Uploading to GCS") as pbar:
                 for future in as_completed(futures):
-                    try:
-                        future.result()
+                    blob_name, success, error_msg = future.result()
+                    if success:
                         pbar.update(1)
-                    except Exception as e:
+                    else:
                         local_file = futures[future]
-                        logger.error(f"Failed to upload {local_file}: {e}")
+                        failed_uploads.append((local_file, error_msg))
+                        pbar.update(1)
+        
+        # Report failed uploads
+        if failed_uploads:
+            error_summary = "\n".join(
+                [f"  - {f}: {err}" for f, err in failed_uploads]
+            )
+            raise RuntimeError(
+                f"Failed to upload {len(failed_uploads)}/{len(zarr_files)} files:\n{error_summary}"
+            )
+        
+        # Verify upload if enabled
+        if self.config.verify_upload:
+            logger.info("Verifying upload...")
+            self._verify_zarr_upload(local_zarr_path, gcs_path)
+
+    def _verify_zarr_upload(self, local_zarr_path: Path, gcs_path: str) -> None:
+        """
+        Verify that all local files were uploaded to GCS.
+
+        Args:
+            local_zarr_path: Local path to Zarr archive
+            gcs_path: GCS destination path
+
+        Raises:
+            RuntimeError: If any files are missing from GCS
+        """
+        import fsspec
+
+        bucket_name, blob_prefix = parse_gcs_path(gcs_path)
+        fs = fsspec.filesystem("gs")
+
+        # Get all local files
+        local_files = [f for f in local_zarr_path.rglob("*") if f.is_file()]
+        
+        # Check each file exists in GCS
+        missing_files = []
+        for local_file in local_files:
+            relative_path = local_file.relative_to(local_zarr_path)
+            gcs_file_path = f"{bucket_name}/{blob_prefix}/{relative_path}".replace("\\", "/")
+            
+            if not fs.exists(gcs_file_path):
+                missing_files.append(str(relative_path))
+        
+        if missing_files:
+            error_summary = "\n".join([f"  - {f}" for f in missing_files])
+            raise RuntimeError(
+                f"Upload verification failed: {len(missing_files)}/{len(local_files)} files missing from GCS:\n{error_summary}"
+            )
+        
+        logger.info(f"Upload verification successful: all {len(local_files)} files present in GCS")
 
     def inspect_grib_files(self) -> dict:
         """

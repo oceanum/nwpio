@@ -1,0 +1,72 @@
+# Production GFS Download Configuration
+# Downloads GFS 0.25° forecast data and creates Zarr archives
+# 
+# REQUIRED: Set cycle via environment variable or CLI argument
+#
+# Usage with environment variable:
+#   export CYCLE="2025-10-15T00:00:00"
+#   nwpio run --config config-production.yaml --max-workers 8
+#
+# Usage with CLI argument:
+#   nwpio run --config config-production.yaml --cycle "2025-10-15T00:00:00" --max-workers 8
+#
+# Usage inline:
+#   CYCLE="2025-10-15T00:00:00" nwpio run --config config-production.yaml --max-workers 8
+
+cleanup_grib: false  # Keep GRIB files for debugging/reprocessing
+
+download:
+  # cycle: Set via --cycle or $CYCLE (required)
+  destination_bucket: null  # Download to local disk (faster processing)
+  local_download_dir: /tmp/nwp-data
+  max_lead_time: 240  # 10 days (0-120h hourly, 123-240h 3-hourly)
+  overwrite: false
+  product: gfs
+  resolution: 0p25
+  source_bucket: global-forecast-system
+  # File availability validation (CRITICAL for production)
+  validate_before_download: true  # Fail fast if files not ready (for retry logic)
+
+process:
+  # Wind 10m (u10 + v10)
+  - filter_by_keys:
+      typeOfLevel: heightAboveGround
+      level: 10
+    grib_path: /tmp/nwp-data/gfs/0p25/{cycle:%Y%m%d}/{cycle:%H}/
+    output_path: gs://oceanum-data-dev/forecast/gfs_0p25_wind10m_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
+    overwrite: true  # Delete existing Zarr before uploading new one
+    write_local_first: true  # Write to local temp, then upload
+    local_temp_dir: null  # Use system temp dir
+    # Upload configuration (robust handling of network issues)
+    max_upload_workers: 8  # Parallel uploads
+    upload_timeout: 600  # 10 minutes per file (increased from default 120s)
+    upload_max_retries: 3  # Retry failed uploads with exponential backoff
+    verify_upload: true  # Verify all files uploaded successfully
+    chunks:
+      time: -1  # Single chunk for time (all timesteps together)
+      longitude: 128
+      latitude: 128
+    variables:
+      - u10
+      - v10
+
+  # # Sea ice concentration (siconc)
+  # - filter_by_keys:
+  #     typeOfLevel: surface
+  #     stepType: instant  # Required to disambiguate surface variables
+  #   grib_path: /tmp/nwp-data/gfs/0p25/{cycle:%Y%m%d}/{cycle:%H}/
+  #   output_path: gs://oceanum-data-dev/forecast/gfs_0p25_icec_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
+  #   overwrite: true  # Delete existing Zarr before uploading new one
+  #   write_local_first: true  # Write to local temp, then upload
+  #   local_temp_dir: null  # Use system temp dir
+  #   # Upload configuration (robust handling of network issues)
+  #   max_upload_workers: 8  # Parallel uploads
+  #   upload_timeout: 600  # 10 minutes per file (increased from default 120s)
+  #   upload_max_retries: 3  # Retry failed uploads with exponential backoff
+  #   verify_upload: true  # Verify all files uploaded successfully
+  #   chunks:
+  #     time: -1  # Single chunk for time (all timesteps together)
+  #     longitude: 128
+  #     latitude: 128
+  #   variables:
+  #     - siconc  # Sea ice concentration (0-1)
