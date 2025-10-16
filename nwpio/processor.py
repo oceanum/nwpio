@@ -173,12 +173,12 @@ class GribProcessor:
     def _format_output_path(self, dataset: xr.Dataset) -> str:
         """
         Format output path with cycle datetime placeholders.
-        
+
         Supports Python datetime formatting syntax:
         - {cycle:%Y%m%d} -> 20240101
         - {cycle:%Hz} -> 00z, 06z, etc.
         - {cycle:%Y-%m-%d_%H%M} -> 2024-01-01_0000
-        
+
         Also supports legacy placeholders for backward compatibility:
         - {date} -> 20240101
         - {time} -> 000000
@@ -191,28 +191,29 @@ class GribProcessor:
             Formatted output path
         """
         output_path = self.config.output_path
-        
+
         # Check if there are any placeholders
         if "{" not in output_path:
             return output_path
-        
+
         # Extract first time from dataset for timestamp
         if "time" in dataset.coords:
             first_time = dataset.time.values[0]
             # Convert numpy datetime64 to Python datetime
             import pandas as pd
             import re
+
             dt = pd.Timestamp(first_time).to_pydatetime()
-            
+
             # Handle {cycle:...} format strings
             # Find all {cycle:format} patterns and replace them
-            cycle_pattern = r'\{cycle:([^}]+)\}'
+            cycle_pattern = r"\{cycle:([^}]+)\}"
             matches = re.finditer(cycle_pattern, output_path)
             for match in matches:
                 format_str = match.group(1)
                 formatted_value = dt.strftime(format_str)
                 output_path = output_path.replace(match.group(0), formatted_value)
-            
+
             # Handle legacy placeholders for backward compatibility
             legacy_replacements = {
                 "{timestamp}": dt.strftime(self.config.timestamp_format),
@@ -220,10 +221,10 @@ class GribProcessor:
                 "{time}": dt.strftime("%H%M%S"),
                 "{cycle}": f"{dt.hour:02d}z",
             }
-            
+
             for placeholder, value in legacy_replacements.items():
                 output_path = output_path.replace(placeholder, value)
-        
+
         return output_path
 
     def _write_zarr(self, dataset: xr.Dataset, output_path: str) -> None:
@@ -259,7 +260,9 @@ class GribProcessor:
                 consolidated=True,
             )
 
-    def _write_local_then_upload(self, dataset: xr.Dataset, gcs_path: str, mode: str) -> None:
+    def _write_local_then_upload(
+        self, dataset: xr.Dataset, gcs_path: str, mode: str
+    ) -> None:
         """
         Write Zarr to local temp directory, then upload to GCS.
 
@@ -270,7 +273,6 @@ class GribProcessor:
         """
         import tempfile
         import shutil
-        from google.cloud import storage
 
         # Determine temp directory
         if self.config.local_temp_dir:
@@ -312,8 +314,7 @@ class GribProcessor:
             local_zarr_path: Local path to Zarr archive
             gcs_path: GCS destination path
         """
-        from google.cloud import storage
-        from nwpio.utils import parse_gcs_path, get_gcs_client
+        from nwpio.utils import get_gcs_client
 
         bucket_name, blob_prefix = parse_gcs_path(gcs_path)
         client = get_gcs_client()
@@ -324,6 +325,7 @@ class GribProcessor:
         logger.info(f"Uploading {len(zarr_files)} files...")
 
         from tqdm import tqdm
+
         for local_file in tqdm(zarr_files, desc="Uploading to GCS"):
             if local_file.is_file():
                 # Calculate relative path within zarr archive

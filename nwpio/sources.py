@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import List, Literal
+from typing import List
 
 
 @dataclass
@@ -46,9 +46,9 @@ class GFSSource(DataSource):
 
     # GFS file naming patterns and intervals
     LEAD_TIME_INTERVALS = {
-        (0, 120): 1,      # 0-120h: hourly
-        (120, 240): 3,    # 120-240h: 3-hourly
-        (240, 384): 12,   # 240-384h: 12-hourly
+        (0, 120): 1,  # 0-120h: hourly
+        (120, 240): 3,  # 120-240h: 3-hourly
+        (240, 384): 12,  # 240-384h: 12-hourly
     }
 
     def get_file_list(self) -> List[GribFileSpec]:

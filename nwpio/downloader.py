@@ -2,10 +2,8 @@
 
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pathlib import Path
-from typing import List, Optional
+from typing import List
 
-from google.cloud import storage
 from tqdm import tqdm
 
 from nwpio.config import DownloadConfig
@@ -60,8 +58,7 @@ class GribDownloader:
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             # Submit all download tasks
             future_to_spec = {
-                executor.submit(self._download_file, spec): spec
-                for spec in file_specs
+                executor.submit(self._download_file, spec): spec for spec in file_specs
             }
 
             # Process completed downloads with progress bar

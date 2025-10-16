@@ -43,7 +43,9 @@ def get_gcs_client() -> storage.Client:
     return storage.Client()
 
 
-def gcs_blob_exists(bucket_name: str, blob_name: str, client: Optional[storage.Client] = None) -> bool:
+def gcs_blob_exists(
+    bucket_name: str, blob_name: str, client: Optional[storage.Client] = None
+) -> bool:
     """
     Check if a GCS blob exists.
 
@@ -97,7 +99,9 @@ def copy_gcs_blob(
         return True
 
     except Exception as e:
-        logger.error(f"Failed to copy {source_bucket}/{source_blob} to {dest_bucket}/{dest_blob}: {e}")
+        logger.error(
+            f"Failed to copy {source_bucket}/{source_blob} to {dest_bucket}/{dest_blob}: {e}"
+        )
         return False
 
 

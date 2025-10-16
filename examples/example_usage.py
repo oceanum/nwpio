@@ -19,19 +19,19 @@ def example_download():
     )
 
     downloader = GribDownloader(config, max_workers=10)
-    
+
     # Preview what will be downloaded
     manifest = downloader.get_download_manifest()
     print(f"Will download {len(manifest)} files")
-    
+
     # Perform download
     downloaded_files = downloader.download()
     print(f"Downloaded {len(downloaded_files)} files")
-    
+
     # Verify downloads
     verification = downloader.verify_downloads(downloaded_files)
     print(f"Verified {verification['exists']}/{verification['total']} files")
-    
+
     return downloaded_files
 
 
@@ -47,12 +47,12 @@ def example_process():
     )
 
     processor = GribProcessor(config)
-    
+
     # Inspect GRIB files first
     metadata = processor.inspect_grib_files()
     print(f"Found {metadata['num_files']} GRIB files")
     print(f"Available variables: {metadata['variables']}")
-    
+
     # Process to Zarr
     output_path = processor.process()
     print(f"Created Zarr archive: {output_path}")
@@ -97,14 +97,14 @@ def example_with_filters():
 if __name__ == "__main__":
     print("=== Example 1: Download GFS data ===")
     # example_download()
-    
+
     print("\n=== Example 2: Process GRIB to Zarr ===")
     # example_process()
-    
+
     print("\n=== Example 3: Download ECMWF data ===")
     # example_ecmwf()
-    
+
     print("\n=== Example 4: Process with filters ===")
     # example_with_filters()
-    
+
     print("\nUncomment the function calls to run the examples")

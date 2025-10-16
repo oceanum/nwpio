@@ -16,27 +16,16 @@ class DownloadConfig(BaseModel):
     resolution: str = Field(
         description="Model resolution (e.g., '0p25' for 0.25 degrees)"
     )
-    cycle: datetime = Field(
-        description="Forecast initialization time (cycle)"
-    )
-    max_lead_time: int = Field(
-        description="Maximum lead time in hours",
-        gt=0
-    )
-    source_bucket: str = Field(
-        description="Source GCS bucket containing GRIB files"
-    )
+    cycle: datetime = Field(description="Forecast initialization time (cycle)")
+    max_lead_time: int = Field(description="Maximum lead time in hours", gt=0)
+    source_bucket: str = Field(description="Source GCS bucket containing GRIB files")
     destination_bucket: str = Field(
         description="Destination GCS bucket for downloaded files"
     )
     destination_prefix: Optional[str] = Field(
-        default=None,
-        description="Optional prefix for destination paths"
+        default=None, description="Optional prefix for destination paths"
     )
-    overwrite: bool = Field(
-        default=False,
-        description="Overwrite existing files"
-    )
+    overwrite: bool = Field(default=False, description="Overwrite existing files")
 
     @field_validator("cycle")
     @classmethod
@@ -44,16 +33,18 @@ class DownloadConfig(BaseModel):
         """Validate cycle hour matches product constraints."""
         product = info.data.get("product")
         cycle_hour = v.hour
-        
+
         # Validate cycle hour is valid (0, 6, 12, 18)
         if cycle_hour not in [0, 6, 12, 18]:
             raise ValueError(f"Cycle hour must be 0, 6, 12, or 18, got {cycle_hour}")
-        
+
         # ECMWF only supports 00z and 12z
         if product in ["ecmwf-hres", "ecmwf-ens"]:
             if cycle_hour not in [0, 12]:
-                raise ValueError(f"ECMWF only supports 00z and 12z cycles, got {cycle_hour:02d}z")
-        
+                raise ValueError(
+                    f"ECMWF only supports 00z and 12z cycles, got {cycle_hour:02d}z"
+                )
+
         return v
 
     @field_validator("max_lead_time")
@@ -73,9 +64,7 @@ class DownloadConfig(BaseModel):
 class ProcessConfig(BaseModel):
     """Configuration for processing GRIB files to Zarr."""
 
-    grib_path: str = Field(
-        description="Path to GRIB files (local or GCS)"
-    )
+    grib_path: str = Field(description="Path to GRIB files (local or GCS)")
     variables: List[str] = Field(
         description="List of variables to extract from GRIB files"
     )
@@ -84,42 +73,36 @@ class ProcessConfig(BaseModel):
     )
     filter_by_keys: Optional[dict] = Field(
         default=None,
-        description="Additional GRIB key filters (e.g., {'typeOfLevel': 'surface'})"
+        description="Additional GRIB key filters (e.g., {'typeOfLevel': 'surface'})",
     )
     chunks: Optional[dict] = Field(
         default=None,
-        description="Chunking specification for Zarr (e.g., {'time': 1, 'latitude': 100})"
+        description="Chunking specification for Zarr (e.g., {'time': 1, 'latitude': 100})",
     )
     overwrite: bool = Field(
-        default=False,
-        description="Overwrite existing Zarr archive"
+        default=False, description="Overwrite existing Zarr archive"
     )
     timestamp_format: str = Field(
         default="%Y%m%d_%H%M%S",
-        description="Format string for {timestamp} placeholder (strftime format)"
+        description="Format string for {timestamp} placeholder (strftime format)",
     )
     write_local_first: bool = Field(
         default=False,
-        description="Write to local temp directory first, then upload to GCS (helps with network issues)"
+        description="Write to local temp directory first, then upload to GCS (helps with network issues)",
     )
     local_temp_dir: Optional[str] = Field(
         default=None,
-        description="Local temporary directory for write_local_first (default: system temp dir)"
+        description="Local temporary directory for write_local_first (default: system temp dir)",
     )
 
 
 class WorkflowConfig(BaseModel):
     """Combined configuration for download and process workflow."""
 
-    download: DownloadConfig = Field(
-        description="Download configuration"
-    )
-    process: ProcessConfig = Field(
-        description="Process configuration"
-    )
+    download: DownloadConfig = Field(description="Download configuration")
+    process: ProcessConfig = Field(description="Process configuration")
     cleanup_grib: bool = Field(
-        default=False,
-        description="Delete GRIB files after processing"
+        default=False, description="Delete GRIB files after processing"
     )
 
     @classmethod

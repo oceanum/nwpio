@@ -133,7 +133,9 @@ def download(
 
             # Verify downloads
             verification = downloader.verify_downloads(downloaded_files)
-            click.echo(f"Verification: {verification['exists']}/{verification['total']} files exist")
+            click.echo(
+                f"Verification: {verification['exists']}/{verification['total']} files exist"
+            )
 
     except Exception as e:
         logger.error(f"Download failed: {e}")
@@ -163,13 +165,13 @@ def download(
     "--filter-keys",
     type=str,
     default=None,
-    help="GRIB filter keys as JSON string (e.g., '{\"typeOfLevel\": \"surface\"}')",
+    help='GRIB filter keys as JSON string (e.g., \'{"typeOfLevel": "surface"}\')',
 )
 @click.option(
     "--chunks",
     type=str,
     default=None,
-    help="Chunking specification as JSON string (e.g., '{\"time\": 1, \"latitude\": 100}')",
+    help='Chunking specification as JSON string (e.g., \'{"time": 1, "latitude": 100}\')',
 )
 @click.option(
     "--overwrite",
@@ -286,7 +288,9 @@ def run(
         # Download step
         if not skip_download:
             click.echo("=== Download Step ===")
-            downloader = GribDownloader(workflow_config.download, max_workers=max_workers)
+            downloader = GribDownloader(
+                workflow_config.download, max_workers=max_workers
+            )
             downloaded_files = downloader.download()
             click.echo(f"Downloaded {len(downloaded_files)} files\n")
 
