@@ -37,6 +37,8 @@ process:
     overwrite: true  # Delete existing Zarr before uploading new one
     write_local_first: true  # Write to local temp, then upload
     local_temp_dir: null  # Use system temp dir
+    # GRIB loading configuration
+    max_grib_workers: 8  # Parallel GRIB loading (4-8 recommended, 1 for sequential)
     # Upload configuration (robust handling of network issues)
     max_upload_workers: 8  # Parallel uploads
     upload_timeout: 600  # 10 minutes per file (increased from default 120s)
@@ -60,6 +62,7 @@ process:
   #   write_local_first: true  # Write to local temp, then upload
   #   local_temp_dir: null  # Use system temp dir
   #   # Upload configuration (robust handling of network issues)
+  #   max_grib_workers: 8  # Parallel GRIB loading (4-8 recommended, 1 for sequential)
   #   max_upload_workers: 8  # Parallel uploads
   #   upload_timeout: 600  # 10 minutes per file (increased from default 120s)
   #   upload_max_retries: 3  # Retry failed uploads with exponential backoff

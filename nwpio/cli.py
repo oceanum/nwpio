@@ -213,6 +213,12 @@ def download(
     help="Skip upload verification (not recommended)",
 )
 @click.option(
+    "--max-grib-workers",
+    type=int,
+    default=4,
+    help="Maximum number of parallel workers for loading GRIB files",
+)
+@click.option(
     "--inspect",
     is_flag=True,
     help="Inspect GRIB files without processing",
@@ -230,6 +236,7 @@ def process(
     upload_timeout: int,
     upload_max_retries: int,
     no_verify_upload: bool,
+    max_grib_workers: int,
     inspect: bool,
 ):
     """Process GRIB files and convert to Zarr."""
@@ -257,6 +264,7 @@ def process(
             upload_timeout=upload_timeout,
             upload_max_retries=upload_max_retries,
             verify_upload=not no_verify_upload,
+            max_grib_workers=max_grib_workers,
         )
 
         # Create processor

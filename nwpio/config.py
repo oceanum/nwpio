@@ -126,6 +126,10 @@ class ProcessConfig(BaseModel):
         default=True,
         description="Verify all files were uploaded successfully after upload completes",
     )
+    max_grib_workers: int = Field(
+        default=4,
+        description="Maximum number of parallel workers for loading GRIB files (default: 4)",
+    )
 
 
 class WorkflowConfig(BaseModel):

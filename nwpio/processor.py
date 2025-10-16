@@ -50,15 +50,20 @@ class GribProcessor:
             raise ValueError(f"No GRIB files found at {formatted_path}")
 
         # Load and process GRIB files
-        datasets = []
-        for grib_file in tqdm(grib_files, desc="Loading GRIB files"):
-            try:
-                ds = self._load_grib_file(grib_file)
-                if ds is not None:
-                    datasets.append(ds)
-            except Exception as e:
-                raise RuntimeError(f"Failed to load {grib_file}: {e}")
-            #import ipdb; ipdb.set_trace()
+        if self.config.max_grib_workers > 1:
+            # Parallel loading
+            logger.info(f"Loading GRIB files with {self.config.max_grib_workers} workers...")
+            datasets = self._load_grib_files_parallel(grib_files)
+        else:
+            # Sequential loading
+            datasets = []
+            for grib_file in tqdm(grib_files, desc="Loading GRIB files"):
+                try:
+                    ds = self._load_grib_file(grib_file)
+                    if ds is not None:
+                        datasets.append(ds)
+                except Exception as e:
+                    raise RuntimeError(f"Failed to load {grib_file}: {e}")
 
         if not datasets:
             raise ValueError("No datasets could be loaded from GRIB files")
@@ -155,6 +160,56 @@ class GribProcessor:
             else:
                 # Try glob pattern
                 return [str(f) for f in Path(".").glob(grib_path)]
+
+    def _load_grib_files_parallel(self, grib_files: List[str]) -> List[xr.Dataset]:
+        """
+        Load multiple GRIB files in parallel.
+
+        Args:
+            grib_files: List of GRIB file paths
+
+        Returns:
+            List of loaded xarray Datasets
+
+        Raises:
+            RuntimeError: If any file fails to load
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        datasets = []
+        failed_files = []
+
+        with ThreadPoolExecutor(max_workers=self.config.max_grib_workers) as executor:
+            # Submit all files for loading
+            future_to_file = {
+                executor.submit(self._load_grib_file, grib_file): grib_file
+                for grib_file in grib_files
+            }
+
+            # Collect results with progress bar
+            with tqdm(total=len(grib_files), desc="Loading GRIB files") as pbar:
+                for future in as_completed(future_to_file):
+                    grib_file = future_to_file[future]
+                    try:
+                        ds = future.result()
+                        if ds is not None:
+                            datasets.append(ds)
+                        else:
+                            failed_files.append((grib_file, "Returned None"))
+                    except Exception as e:
+                        failed_files.append((grib_file, str(e)))
+                    pbar.update(1)
+
+        # Report any failures
+        if failed_files:
+            error_summary = "\n".join(
+                [f"  - {f}: {err}" for f, err in failed_files]
+            )
+            raise RuntimeError(
+                f"Failed to load {len(failed_files)}/{len(grib_files)} GRIB files:\n{error_summary}"
+            )
+
+        return datasets
 
     def _load_grib_file(self, file_path: str) -> Optional[xr.Dataset]:
         """
