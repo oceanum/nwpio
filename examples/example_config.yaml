@@ -46,7 +46,14 @@ process:
     - tp
   
   # Output Zarr archive path
-  output_path: gs://your-bucket-name/output/forecast_20240101_00z.zarr
+  # Supports placeholders: {timestamp}, {date}, {time}, {cycle}
+  # Examples:
+  #   - gs://bucket/forecast_{date}_{cycle}.zarr  -> forecast_20240101_00z.zarr
+  #   - gs://bucket/forecast_{timestamp}.zarr     -> forecast_20240101_000000.zarr
+  output_path: gs://your-bucket-name/output/forecast_{date}_{cycle}.zarr
+  
+  # Optional: Custom timestamp format (default: %Y%m%d_%H%M%S)
+  # timestamp_format: "%Y%m%d_%H%M%S"
   
   # Optional: Filter GRIB messages by keys
   # filter_by_keys:

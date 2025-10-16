@@ -64,11 +64,39 @@ config = ProcessConfig(
 
 - `grib_path` (str): Path to GRIB files (local or GCS)
 - `variables` (List[str]): List of variables to extract from GRIB files
-- `output_path` (str): Output path for Zarr archive (local or GCS)
+- `output_path` (str): Output path for Zarr archive (local or GCS). Supports placeholders:
+  - `{timestamp}`: Formatted timestamp (uses `timestamp_format`)
+  - `{date}`: Date in YYYYMMDD format
+  - `{time}`: Time in HHMMSS format
+  - `{cycle}`: Forecast cycle (e.g., "00z", "12z")
 - `filter_by_keys` (dict, optional): Additional GRIB key filters
 - `chunks` (dict, optional): Chunking specification for Zarr
 - `compression` (str): Compression algorithm. Options: "default", "zstd", "lz4", "none"
 - `overwrite` (bool): Whether to overwrite existing Zarr archive (default: False)
+- `timestamp_format` (str): Format string for `{timestamp}` placeholder (default: "%Y%m%d_%H%M%S")
+
+**Timestamp Examples:**
+
+```python
+# Using date and cycle
+ProcessConfig(
+    output_path="gs://bucket/forecast_{date}_{cycle}.zarr",
+    # Results in: forecast_20240101_00z.zarr
+)
+
+# Using custom timestamp
+ProcessConfig(
+    output_path="gs://bucket/forecast_{timestamp}.zarr",
+    timestamp_format="%Y-%m-%d_%H%M",
+    # Results in: forecast_2024-01-01_0000.zarr
+)
+
+# Multiple cycles in same directory
+ProcessConfig(
+    output_path="gs://bucket/forecasts/gfs_{date}_{cycle}.zarr",
+    # Results in: forecasts/gfs_20240101_00z.zarr, gfs_20240101_06z.zarr, etc.
+)
+```
 
 ### WorkflowConfig
 

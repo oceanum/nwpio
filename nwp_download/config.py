@@ -75,7 +75,7 @@ class ProcessConfig(BaseModel):
         description="List of variables to extract from GRIB files"
     )
     output_path: str = Field(
-        description="Output path for Zarr archive (local or GCS)"
+        description="Output path for Zarr archive (local or GCS). Supports {timestamp}, {date}, {time}, {cycle} placeholders"
     )
     filter_by_keys: Optional[dict] = Field(
         default=None,
@@ -92,6 +92,10 @@ class ProcessConfig(BaseModel):
     overwrite: bool = Field(
         default=False,
         description="Overwrite existing Zarr archive"
+    )
+    timestamp_format: str = Field(
+        default="%Y%m%d_%H%M%S",
+        description="Format string for {timestamp} placeholder (strftime format)"
     )
 
 

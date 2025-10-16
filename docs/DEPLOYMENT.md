@@ -153,32 +153,7 @@ nwp-download download \
     --dry-run
 ```
 
-## Automated Deployment
-
-### Cron Job (Linux/Unix)
-
-```bash
-# Edit crontab
-crontab -e
-
-# Add entry to run every 6 hours
-0 */6 * * * /path/to/venv/bin/nwp-download run --config /path/to/config.yaml >> /var/log/nwp-download.log 2>&1
-```
-
-Or use the provided script:
-
-```bash
-# Make script executable
-chmod +x examples/cron_job.sh
-
-# Edit script with your paths
-vim examples/cron_job.sh
-
-# Add to crontab
-0 */6 * * * /path/to/examples/cron_job.sh
-```
-
-### Docker Deployment
+## Docker Deployment
 
 ```bash
 # Build Docker image
@@ -192,49 +167,6 @@ docker run \
     nwp-download:latest run --config /config/config.yaml
 ```
 
-### Kubernetes Deployment
-
-```bash
-# Create namespace
-kubectl create namespace nwp-download
-
-# Create secret for GCS credentials
-kubectl create secret generic gcs-key \
-    --from-file=key.json=/path/to/nwp-download-key.json \
-    -n nwp-download
-
-# Apply configuration
-kubectl apply -f examples/kubernetes_cronjob.yaml -n nwp-download
-
-# Check status
-kubectl get cronjobs -n nwp-download
-kubectl get jobs -n nwp-download
-kubectl logs -l job-name=nwp-download-xxxxx -n nwp-download
-```
-
-### Google Cloud Run (Scheduled)
-
-```bash
-# Build and push image
-gcloud builds submit --tag gcr.io/YOUR_PROJECT_ID/nwp-download
-
-# Deploy Cloud Run job
-gcloud run jobs create nwp-download \
-    --image gcr.io/YOUR_PROJECT_ID/nwp-download \
-    --service-account nwp-download@YOUR_PROJECT_ID.iam.gserviceaccount.com \
-    --memory 4Gi \
-    --cpu 2 \
-    --max-retries 3 \
-    --region us-central1
-
-# Create Cloud Scheduler job
-gcloud scheduler jobs create http nwp-download-scheduler \
-    --location us-central1 \
-    --schedule="0 */6 * * *" \
-    --uri="https://us-central1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/YOUR_PROJECT_ID/jobs/nwp-download:run" \
-    --http-method POST \
-    --oauth-service-account-email nwp-download@YOUR_PROJECT_ID.iam.gserviceaccount.com
-```
 
 ## Monitoring and Logging
 
@@ -244,22 +176,11 @@ gcloud scheduler jobs create http nwp-download-scheduler \
 # Local logs
 tail -f /var/log/nwp-download.log
 
-# Kubernetes logs
-kubectl logs -f -l app=nwp-download -n nwp-download
-
-# GCP Cloud Logging
-gcloud logging read "resource.type=cloud_run_job AND resource.labels.job_name=nwp-download" \
+# GCP Cloud Logging (if using GCP)
+gcloud logging read "resource.type=cloud_run_job" \
     --limit 50 \
     --format json
 ```
-
-### Set Up Alerts
-
-Create alerting policies in GCP for:
-- Job failures
-- Excessive runtime
-- Storage quota exceeded
-- API errors
 
 ## Troubleshooting
 
@@ -350,8 +271,6 @@ gsutil -m rsync -r gs://your-nwp-zarr-bucket gs://your-backup-bucket/zarr/
 4. **Rotate credentials** regularly
 5. **Enable audit logging** for compliance
 6. **Use private GCS buckets** for sensitive data
-7. **Implement network policies** in Kubernetes
-
 ## Scaling
 
 ### Horizontal Scaling

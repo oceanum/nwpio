@@ -85,12 +85,13 @@ class GribProcessor:
             logger.info(f"Applying default chunking: {default_chunks}")
             combined_ds = combined_ds.chunk(default_chunks)
 
-        # Write to Zarr
-        logger.info(f"Writing to Zarr: {self.config.output_path}")
-        self._write_zarr(combined_ds)
+        # Format output path with timestamps
+        output_path = self._format_output_path(combined_ds)
+        logger.info(f"Writing to Zarr: {output_path}")
+        self._write_zarr(combined_ds, output_path)
 
         logger.info("Processing complete")
-        return self.config.output_path
+        return output_path
 
     def _find_grib_files(self) -> List[str]:
         """
@@ -169,12 +170,49 @@ class GribProcessor:
             logger.error(f"Failed to load {file_path}: {e}")
             return None
 
-    def _write_zarr(self, dataset: xr.Dataset) -> None:
+    def _format_output_path(self, dataset: xr.Dataset) -> str:
+        """
+        Format output path with timestamp placeholders.
+
+        Args:
+            dataset: xarray Dataset (used to extract time information)
+
+        Returns:
+            Formatted output path
+        """
+        output_path = self.config.output_path
+        
+        # Check if there are any placeholders
+        if "{" not in output_path:
+            return output_path
+        
+        # Extract first time from dataset for timestamp
+        if "time" in dataset.coords:
+            first_time = dataset.time.values[0]
+            # Convert numpy datetime64 to Python datetime
+            import pandas as pd
+            dt = pd.Timestamp(first_time).to_pydatetime()
+            
+            # Replace placeholders
+            replacements = {
+                "{timestamp}": dt.strftime(self.config.timestamp_format),
+                "{date}": dt.strftime("%Y%m%d"),
+                "{time}": dt.strftime("%H%M%S"),
+                "{cycle}": f"{dt.hour:02d}z",
+            }
+            
+            for placeholder, value in replacements.items():
+                output_path = output_path.replace(placeholder, value)
+        
+        return output_path
+
+    def _write_zarr(self, dataset: xr.Dataset, output_path: str) -> None:
         """
         Write dataset to Zarr format.
 
         Args:
             dataset: xarray Dataset to write
+            output_path: Output path for Zarr archive
         """
         # Configure encoding
         encoding = {}
@@ -185,20 +223,20 @@ class GribProcessor:
         mode = "w" if self.config.overwrite else "w-"
 
         # Write to Zarr
-        if is_gcs_path(self.config.output_path):
+        if is_gcs_path(output_path):
             # Write to GCS using gcsfs
             dataset.to_zarr(
-                self.config.output_path,
+                output_path,
                 mode=mode,
                 encoding=encoding,
                 consolidated=True,
             )
         else:
             # Write to local filesystem
-            output_path = Path(self.config.output_path)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
+            local_path = Path(output_path)
+            local_path.parent.mkdir(parents=True, exist_ok=True)
             dataset.to_zarr(
-                output_path,
+                local_path,
                 mode=mode,
                 encoding=encoding,
                 consolidated=True,

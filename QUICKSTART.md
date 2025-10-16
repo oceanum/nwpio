@@ -104,19 +104,7 @@ processor = GribProcessor(process_config)
 processor.process()
 ```
 
-## Scheduled Execution
-
-### Cron (Linux/Mac)
-
-```bash
-# Edit crontab
-crontab -e
-
-# Add entry (runs every 6 hours)
-0 */6 * * * /path/to/venv/bin/nwp-download run --config /path/to/config.yaml
-```
-
-### Docker
+## Docker Deployment
 
 ```bash
 # Build image

@@ -208,7 +208,6 @@ While designed for GCS, the architecture can be adapted for:
 
 - Uses Google Cloud SDK authentication
 - Service accounts for production deployments
-- Workload Identity for Kubernetes
 
 ### Credentials
 

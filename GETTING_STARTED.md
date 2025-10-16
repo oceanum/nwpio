@@ -215,35 +215,6 @@ ds['t2m'].isel(time=0).plot()
 plt.show()
 ```
 
-## Setting Up Automated Downloads
-
-### Daily Cron Job
-
-```bash
-# Edit crontab
-crontab -e
-
-# Add entry to run daily at 1 AM
-0 1 * * * /path/to/venv/bin/nwp-download run --config /path/to/config.yaml >> /var/log/nwp.log 2>&1
-```
-
-### Kubernetes CronJob
-
-```bash
-# 1. Create GCS credentials secret
-kubectl create secret generic gcs-key \
-    --from-file=key.json=/path/to/credentials.json
-
-# 2. Edit and apply the CronJob manifest
-vim examples/kubernetes_cronjob.yaml
-kubectl apply -f examples/kubernetes_cronjob.yaml
-
-# 3. Monitor
-kubectl get cronjobs
-kubectl get jobs
-kubectl logs -l job-name=nwp-download-xxxxx
-```
-
 ## Common Patterns
 
 ### Download Latest Forecast

@@ -8,7 +8,7 @@ A Python library for downloading and processing Numerical Weather Prediction (NW
 - **Flexible configuration** for product type, resolution, forecast cycles, and lead times
 - **Extract variables** from GRIB files using xarray and cfgrib
 - **Convert to Zarr** format for efficient storage and access
-- **CLI interface** for easy integration with cron jobs and cluster workflows
+- **CLI interface** for easy integration with deployment workflows
 
 ## Installation
 

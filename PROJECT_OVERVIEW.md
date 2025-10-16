@@ -2,7 +2,7 @@
 
 ## Summary
 
-A production-ready Python library for downloading and processing Numerical Weather Prediction (NWP) forecast data from GFS and ECMWF. Designed for cloud-native workflows with GCS integration, parallel processing, and automated scheduling capabilities.
+A production-ready Python library for downloading and processing Numerical Weather Prediction (NWP) forecast data from GFS and ECMWF. Designed for cloud-native workflows with GCS integration and parallel processing.
 
 ## Project Structure
 
@@ -19,9 +19,7 @@ nwp-download/
 │
 ├── examples/                  # Usage examples
 │   ├── example_config.yaml   # Sample configuration file
-│   ├── example_usage.py      # Python API examples
-│   ├── cron_job.sh           # Bash cron job script
-│   └── kubernetes_cronjob.yaml # K8s CronJob manifest
+│   └── example_usage.py      # Python API examples
 │
 ├── docs/                      # Documentation
 │   ├── API.md                # Complete API reference
@@ -64,8 +62,7 @@ nwp-download/
 - Comprehensive error handling and logging
 - Progress tracking for long operations
 - Dry-run mode for testing
-- Docker and Kubernetes support
-- Automated scheduling examples
+- Docker support
 
 ### 4. **Cloud Native**
 - Designed for Google Cloud Storage
@@ -138,11 +135,6 @@ processor = GribProcessor(config)
 processor.process()
 ```
 
-### 3. Scheduled Execution
-- **Cron**: Traditional Unix scheduling
-- **Kubernetes CronJob**: Cloud-native scheduling
-- **Cloud Scheduler**: GCP managed scheduling
-
 ## Deployment Options
 
 ### Local Development
@@ -155,16 +147,6 @@ nwp-download --help
 ```bash
 docker build -t nwp-download .
 docker run nwp-download run --config /config/config.yaml
-```
-
-### Kubernetes
-```bash
-kubectl apply -f examples/kubernetes_cronjob.yaml
-```
-
-### Cloud Run (GCP)
-```bash
-gcloud run jobs create nwp-download --image gcr.io/.../nwp-download
 ```
 
 ## Configuration Example
