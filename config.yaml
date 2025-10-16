@@ -10,9 +10,12 @@ download:
   source_bucket: global-forecast-system
 process:
   chunks: null
-  filter_by_keys: null
-  grib_path: gs://oceanum-data-dev/nwp-data/
-  output_path: gs://oceanum-data-dev/forecasts/gfs_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
+  filter_by_keys:
+    typeOfLevel: heightAboveGround
+    level: 10
+  # grib_path: gs://oceanum-data-dev/nwp-data/gfs/0p25/{cycle:%Y%m%d}/{cycle:%H}/
+  grib_path: /tmp/nwp-data/gfs/0p25/20240101/00/
+  output_path: gs://oceanum-data-dev/forecast/gfs_0p25_wind10m_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
   overwrite: false
   write_local_first: true
   local_temp_dir: null

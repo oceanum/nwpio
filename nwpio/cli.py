@@ -297,7 +297,8 @@ def run(
         # Process step
         if not skip_process:
             click.echo("=== Process Step ===")
-            processor = GribProcessor(workflow_config.process)
+            # Pass cycle from download config for path formatting
+            processor = GribProcessor(workflow_config.process, cycle=workflow_config.download.cycle)
             output_path = processor.process()
             click.echo(f"Created Zarr archive: {output_path}\n")
 

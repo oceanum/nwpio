@@ -32,6 +32,7 @@ dependencies = [
     "xarray",
     "cfgrib",
     "zarr<3",
+    "dask",
     "click",
     "pydantic",
     "pydantic-settings",

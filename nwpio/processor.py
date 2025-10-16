@@ -17,14 +17,17 @@ logger = logging.getLogger(__name__)
 class GribProcessor:
     """Process GRIB files and convert to Zarr."""
 
-    def __init__(self, config: ProcessConfig):
+    def __init__(self, config: ProcessConfig, cycle: Optional[str] = None):
         """
         Initialize processor.
 
         Args:
             config: Process configuration
+            cycle: Optional cycle datetime for path formatting
         """
         self.config = config
+        self.cycle = cycle
+        logger.debug(f"GribProcessor initialized with cycle: {cycle} (type: {type(cycle)})")
 
     def process(self) -> str:
         """
@@ -33,7 +36,8 @@ class GribProcessor:
         Returns:
             Path to output Zarr archive
         """
-        logger.info(f"Processing GRIB files from {self.config.grib_path}")
+        formatted_path = self._format_grib_path()
+        logger.info(f"Processing GRIB files from {formatted_path}")
         logger.info(f"Extracting variables: {', '.join(self.config.variables)}")
 
         # Find all GRIB files
@@ -41,7 +45,7 @@ class GribProcessor:
         logger.info(f"Found {len(grib_files)} GRIB files")
 
         if not grib_files:
-            raise ValueError(f"No GRIB files found at {self.config.grib_path}")
+            raise ValueError(f"No GRIB files found at {formatted_path}")
 
         # Load and process GRIB files
         datasets = []
@@ -100,22 +104,27 @@ class GribProcessor:
         Returns:
             List of GRIB file paths
         """
-        grib_path = self.config.grib_path
+        grib_path = self._format_grib_path()
 
         if is_gcs_path(grib_path):
             # Use fsspec to list GCS files
             fs = fsspec.filesystem("gs")
-            # Remove gs:// prefix for fsspec
-            path = grib_path.replace("gs://", "")
+            # Remove gs:// prefix and trailing slash for fsspec
+            path = grib_path.replace("gs://", "").rstrip("/")
 
             # Check if path is a file or directory
             if fs.isfile(path):
                 return [grib_path]
             elif fs.isdir(path):
-                # Find all GRIB files recursively
-                all_files = fs.glob(f"{path}/**/*.grib*")
-                all_files.extend(fs.glob(f"{path}/**/*.grb*"))
-                return [f"gs://{f}" for f in all_files]
+                # Find all GRIB files (both with and without extensions)
+                all_files = []
+                # Standard GRIB extensions
+                all_files.extend(fs.glob(f"{path}/*.grib*"))
+                all_files.extend(fs.glob(f"{path}/*.grb*"))
+                # GFS/ECMWF files without extension
+                all_files.extend(fs.glob(f"{path}/gfs.*"))
+                all_files.extend(fs.glob(f"{path}/ecmwf.*"))
+                return [f"gs://{f}" for f in sorted(set(all_files))]
             else:
                 # Try glob pattern
                 files = fs.glob(path)
@@ -126,9 +135,15 @@ class GribProcessor:
             if path.is_file():
                 return [str(path)]
             elif path.is_dir():
-                grib_files = list(path.glob("**/*.grib*"))
-                grib_files.extend(path.glob("**/*.grb*"))
-                return [str(f) for f in grib_files]
+                # Find all GRIB files (both with and without extensions)
+                grib_files = []
+                # Standard GRIB extensions
+                grib_files.extend(path.glob("*.grib*"))
+                grib_files.extend(path.glob("*.grb*"))
+                # GFS/ECMWF files without extension
+                grib_files.extend(path.glob("gfs.*"))
+                grib_files.extend(path.glob("ecmwf.*"))
+                return [str(f) for f in sorted(set(grib_files))]
             else:
                 # Try glob pattern
                 return [str(f) for f in Path(".").glob(grib_path)]
@@ -151,24 +166,101 @@ class GribProcessor:
                 backend_kwargs["filter_by_keys"] = self.config.filter_by_keys
 
             # Load with cfgrib engine
-            ds = xr.open_dataset(
-                file_path,
-                engine="cfgrib",
-                backend_kwargs=backend_kwargs,
-            )
+            # For GCS paths, we need to use fsspec to open the file
+            if is_gcs_path(file_path):
+                import tempfile
+                import shutil
+                
+                # Download to temp file since cfgrib doesn't support GCS directly
+                fs = fsspec.filesystem("gs")
+                gcs_path = file_path.replace("gs://", "")
+                
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".grib") as tmp:
+                    with fs.open(gcs_path, "rb") as f:
+                        shutil.copyfileobj(f, tmp)
+                    tmp_path = tmp.name
+                
+                try:
+                    ds = xr.open_dataset(
+                        tmp_path,
+                        engine="cfgrib",
+                        backend_kwargs=backend_kwargs,
+                    )
+                    # Load into memory so we can delete the temp file
+                    ds = ds.load()
+                finally:
+                    import os
+                    os.unlink(tmp_path)
+            else:
+                ds = xr.open_dataset(
+                    file_path,
+                    engine="cfgrib",
+                    backend_kwargs=backend_kwargs,
+                )
 
             # Ensure time dimension exists
             if "time" not in ds.dims:
-                if "valid_time" in ds.coords:
+                if "valid_time" in ds.coords and "time" not in ds.coords:
+                    # Rename valid_time to time if time doesn't exist
                     ds = ds.rename({"valid_time": "time"})
                 elif "time" in ds.coords:
+                    # Expand time coordinate to dimension
                     ds = ds.expand_dims("time")
+                elif "valid_time" in ds.coords:
+                    # Use valid_time as time dimension
+                    ds = ds.expand_dims("valid_time").rename({"valid_time": "time"})
 
             return ds
 
         except Exception as e:
             logger.error(f"Failed to load {file_path}: {e}")
             return None
+
+    def _format_grib_path(self) -> str:
+        """
+        Format grib_path with cycle information if provided.
+
+        Supports {cycle:...} format strings:
+        - {cycle:%Y%m%d} -> 20240101
+        - {cycle:%Hz} -> 00z
+        - {cycle:%H} -> 00
+
+        Returns:
+            Formatted grib path
+        """
+        grib_path = self.config.grib_path
+
+        # Check if there are any placeholders
+        if "{" not in grib_path:
+            return grib_path
+            
+        # Check if cycle is provided
+        if not self.cycle:
+            logger.warning(f"grib_path contains placeholders but no cycle provided: {grib_path}")
+            return grib_path
+
+        import re
+        from datetime import datetime
+
+        # Parse cycle if it's a string, otherwise use as datetime
+        if isinstance(self.cycle, str):
+            dt = datetime.fromisoformat(self.cycle)
+        elif isinstance(self.cycle, datetime):
+            dt = self.cycle
+        else:
+            logger.warning(f"Invalid cycle type: {type(self.cycle)}")
+            return grib_path
+
+        # Handle {cycle:...} format strings
+        cycle_pattern = r"\{cycle:([^}]+)\}"
+        matches = re.finditer(cycle_pattern, grib_path)
+        for match in matches:
+            format_str = match.group(1)
+            formatted_value = dt.strftime(format_str)
+            grib_path = grib_path.replace(match.group(0), formatted_value)
+
+        logger.debug(f"Formatted grib_path: {grib_path}")
+        return grib_path
 
     def _format_output_path(self, dataset: xr.Dataset) -> str:
         """
@@ -308,33 +400,47 @@ class GribProcessor:
 
     def _upload_zarr_to_gcs(self, local_zarr_path: Path, gcs_path: str) -> None:
         """
-        Upload a local Zarr archive to GCS.
+        Upload a local Zarr archive to GCS using parallel uploads.
 
         Args:
             local_zarr_path: Local path to Zarr archive
             gcs_path: GCS destination path
         """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
         from nwpio.utils import get_gcs_client
 
         bucket_name, blob_prefix = parse_gcs_path(gcs_path)
         client = get_gcs_client()
         bucket = client.bucket(bucket_name)
 
-        # Upload all files in the Zarr archive
-        zarr_files = list(local_zarr_path.rglob("*"))
+        # Get all files to upload
+        zarr_files = [f for f in local_zarr_path.rglob("*") if f.is_file()]
         logger.info(f"Uploading {len(zarr_files)} files...")
 
         from tqdm import tqdm
 
-        for local_file in tqdm(zarr_files, desc="Uploading to GCS"):
-            if local_file.is_file():
-                # Calculate relative path within zarr archive
-                relative_path = local_file.relative_to(local_zarr_path)
-                blob_name = f"{blob_prefix}/{relative_path}".replace("\\", "/")
+        def upload_file(local_file: Path) -> str:
+            """Upload a single file to GCS."""
+            relative_path = local_file.relative_to(local_zarr_path)
+            blob_name = f"{blob_prefix}/{relative_path}".replace("\\", "/")
+            blob = bucket.blob(blob_name)
+            blob.upload_from_filename(str(local_file))
+            return blob_name
 
-                # Upload file
-                blob = bucket.blob(blob_name)
-                blob.upload_from_filename(str(local_file))
+        # Upload files in parallel
+        max_workers = self.config.max_upload_workers
+        logger.info(f"Using {max_workers} parallel workers for upload")
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(upload_file, f): f for f in zarr_files}
+            
+            with tqdm(total=len(zarr_files), desc="Uploading to GCS") as pbar:
+                for future in as_completed(futures):
+                    try:
+                        future.result()
+                        pbar.update(1)
+                    except Exception as e:
+                        local_file = futures[future]
+                        logger.error(f"Failed to upload {local_file}: {e}")
 
     def inspect_grib_files(self) -> dict:
         """

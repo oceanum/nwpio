@@ -94,6 +94,10 @@ class ProcessConfig(BaseModel):
         default=None,
         description="Local temporary directory for write_local_first (default: system temp dir)",
     )
+    max_upload_workers: int = Field(
+        default=16,
+        description="Maximum number of parallel workers for uploading to GCS",
+    )
 
 
 class WorkflowConfig(BaseModel):
