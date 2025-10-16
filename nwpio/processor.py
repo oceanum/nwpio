@@ -105,6 +105,9 @@ class GribProcessor:
             List of GRIB file paths
         """
         grib_path = self._format_grib_path()
+        
+        if not grib_path:
+            raise ValueError("grib_path is not set. Either provide it in config or run download step first.")
 
         if is_gcs_path(grib_path):
             # Use fsspec to list GCS files

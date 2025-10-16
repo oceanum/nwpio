@@ -64,7 +64,10 @@ class DownloadConfig(BaseModel):
 class ProcessConfig(BaseModel):
     """Configuration for processing GRIB files to Zarr."""
 
-    grib_path: str = Field(description="Path to GRIB files (local or GCS)")
+    grib_path: Optional[str] = Field(
+        default=None,
+        description="Path to GRIB files (local or GCS). If None, will use downloaded files location."
+    )
     variables: List[str] = Field(
         description="List of variables to extract from GRIB files"
     )
@@ -104,9 +107,11 @@ class WorkflowConfig(BaseModel):
     """Combined configuration for download and process workflow."""
 
     download: DownloadConfig = Field(description="Download configuration")
-    process: ProcessConfig = Field(description="Process configuration")
+    process: List[ProcessConfig] = Field(
+        description="List of process configurations to run on downloaded GRIB files"
+    )
     cleanup_grib: bool = Field(
-        default=False, description="Delete GRIB files after processing"
+        default=False, description="Delete GRIB files after all processing is complete"
     )
 
     @classmethod

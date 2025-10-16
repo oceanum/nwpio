@@ -294,19 +294,50 @@ def run(
             downloaded_files = downloader.download()
             click.echo(f"Downloaded {len(downloaded_files)} files\n")
 
-        # Process step
+        # Process step(s) - can run multiple processes on the same downloaded files
         if not skip_process:
-            click.echo("=== Process Step ===")
-            # Pass cycle from download config for path formatting
-            processor = GribProcessor(workflow_config.process, cycle=workflow_config.download.cycle)
-            output_path = processor.process()
-            click.echo(f"Created Zarr archive: {output_path}\n")
+            # Determine GRIB path from downloaded files or config
+            if downloaded_files:
+                # Use the directory of downloaded files
+                from pathlib import Path
+                first_file = downloaded_files[0]
+                if first_file.startswith("gs://"):
+                    # For GCS paths, extract directory manually
+                    grib_dir = "/".join(first_file.split("/")[:-1]) + "/"
+                else:
+                    # For local paths, use Path
+                    grib_dir = str(Path(first_file).parent)
+                click.echo(f"Processing GRIB files from: {grib_dir}\n")
+            else:
+                grib_dir = None
+            
+            output_paths = []
+            for idx, process_config in enumerate(workflow_config.process, 1):
+                click.echo(f"=== Process Step {idx}/{len(workflow_config.process)} ===")
+                
+                # Override grib_path if we downloaded files
+                if grib_dir:
+                    process_config.grib_path = grib_dir
+                
+                # Pass cycle from download config for path formatting
+                processor = GribProcessor(process_config, cycle=workflow_config.download.cycle)
+                output_path = processor.process()
+                output_paths.append(output_path)
+                click.echo(f"Created Zarr archive: {output_path}\n")
+            
+            click.echo(f"Created {len(output_paths)} Zarr archives")
 
         # Cleanup step
         if workflow_config.cleanup_grib and downloaded_files:
             click.echo("=== Cleanup Step ===")
-            # TODO: Implement cleanup logic
-            click.echo("Cleanup not yet implemented")
+            import os
+            for file_path in downloaded_files:
+                try:
+                    os.remove(file_path)
+                    logger.info(f"Deleted {file_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete {file_path}: {e}")
+            click.echo(f"Cleaned up {len(downloaded_files)} GRIB files")
 
         click.echo("=== Workflow Complete ===")
 

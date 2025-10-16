@@ -5,10 +5,14 @@ A Python library for downloading and processing Numerical Weather Prediction (NW
 ## Features
 
 - **Download GRIB files** from cloud archives (GCS) for NWP models such as GFS and ECMWF
+- **Multi-process workflow** - Download once, process multiple variable sets efficiently
+- **Parallel operations** - Fast downloads (8 workers) and uploads (16 workers)
 - **Flexible configuration** for product type, resolution, forecast cycles, and lead times
-- **Extract variables** from GRIB files using xarray and cfgrib
+- **Extract variables** from GRIB files using xarray and cfgrib with smart filtering
 - **Convert to Zarr** format for efficient storage and access
+- **Cycle-based formatting** - Dynamic paths with `{cycle:%Y%m%d}` placeholders
 - **CLI interface** for easy integration with deployment workflows
+- **Automatic cleanup** - Optional GRIB file deletion after processing
 
 ## Installation
 
@@ -84,24 +88,64 @@ nwpio run \
 
 ### Configuration File Example
 
+#### Single Process Configuration
 ```yaml
 # config.yaml
 download:
   product: gfs
   resolution: 0p25
-  forecast_time: "2024-01-01T00:00:00"
-  cycle: 00z
-  max_lead_time: 120
-  source_bucket: gcp-public-data-arco-era5
+  cycle: "2024-01-01T00:00:00"
+  max_lead_time: 6
+  source_bucket: global-forecast-system
+  destination_bucket: your-bucket-name
+  destination_prefix: nwp-data/
+
+process:
+  - filter_by_keys:
+      typeOfLevel: heightAboveGround
+      level: 10
+    output_path: gs://your-bucket/wind_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
+    variables: [u10, v10]
+    write_local_first: true
+    max_upload_workers: 16
+```
+
+#### Multi-Process Configuration (Recommended)
+Download once, create multiple Zarr archives with different variable sets:
+
+```yaml
+# config-multi.yaml
+cleanup_grib: true  # Delete GRIB files after all processing
+
+download:
+  product: gfs
+  resolution: 0p25
+  cycle: "2024-01-01T00:00:00"
+  max_lead_time: 6
+  source_bucket: global-forecast-system
   destination_bucket: your-bucket-name
 
 process:
-  variables:
-    - t2m
-    - u10
-    - v10
-    - tp
-  output_path: gs://your-bucket/output.zarr
+  # Process 1: 10m winds
+  - filter_by_keys:
+      typeOfLevel: heightAboveGround
+      level: 10
+    output_path: gs://your-bucket/wind10m_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
+    variables: [u10, v10]
+    max_upload_workers: 16
+    
+  # Process 2: 2m temperature and humidity
+  - filter_by_keys:
+      typeOfLevel: heightAboveGround
+      level: 2
+    output_path: gs://your-bucket/surface_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
+    variables: [t2m, d2m]
+    max_upload_workers: 16
+```
+
+Run with:
+```bash
+nwpio run --config config-multi.yaml --max-workers 8
 ```
 
 ## Supported Products
