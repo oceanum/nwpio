@@ -2,7 +2,7 @@
 
 import pytest
 from datetime import datetime
-from nwp_download.config import DownloadConfig, ProcessConfig, WorkflowConfig
+from nwpio.config import DownloadConfig, ProcessConfig, WorkflowConfig
 
 
 def test_download_config_valid():
@@ -10,14 +10,14 @@ def test_download_config_valid():
     config = DownloadConfig(
         product="gfs",
         resolution="0p25",
-        forecast_time=datetime(2024, 1, 1, 0),
-        cycle="00z",
+        cycle=datetime(2024, 1, 1, 0),  # 00z cycle
         max_lead_time=120,
         source_bucket="source-bucket",
         destination_bucket="dest-bucket",
     )
     assert config.product == "gfs"
     assert config.max_lead_time == 120
+    assert config.cycle.hour == 0
 
 
 def test_download_config_invalid_cycle():
@@ -26,8 +26,7 @@ def test_download_config_invalid_cycle():
         DownloadConfig(
             product="ecmwf-hres",
             resolution="0p1",
-            forecast_time=datetime(2024, 1, 1, 0),
-            cycle="06z",  # Invalid for ECMWF
+            cycle=datetime(2024, 1, 1, 6),  # 06z - Invalid for ECMWF
             max_lead_time=120,
             source_bucket="source-bucket",
             destination_bucket="dest-bucket",
@@ -40,8 +39,7 @@ def test_download_config_invalid_lead_time():
         DownloadConfig(
             product="gfs",
             resolution="0p25",
-            forecast_time=datetime(2024, 1, 1, 0),
-            cycle="00z",
+            cycle=datetime(2024, 1, 1, 0),
             max_lead_time=500,  # Exceeds GFS limit
             source_bucket="source-bucket",
             destination_bucket="dest-bucket",
@@ -56,7 +54,7 @@ def test_process_config_valid():
         output_path="gs://bucket/output.zarr",
     )
     assert len(config.variables) == 3
-    assert config.compression == "default"
+    assert config.write_local_first is False
 
 
 def test_workflow_config():
@@ -64,8 +62,7 @@ def test_workflow_config():
     download_config = DownloadConfig(
         product="gfs",
         resolution="0p25",
-        forecast_time=datetime(2024, 1, 1, 0),
-        cycle="00z",
+        cycle=datetime(2024, 1, 1, 0),
         max_lead_time=120,
         source_bucket="source-bucket",
         destination_bucket="dest-bucket",
