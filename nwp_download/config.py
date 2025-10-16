@@ -85,10 +85,6 @@ class ProcessConfig(BaseModel):
         default=None,
         description="Chunking specification for Zarr (e.g., {'time': 1, 'latitude': 100})"
     )
-    compression: str = Field(
-        default="default",
-        description="Compression algorithm for Zarr"
-    )
     overwrite: bool = Field(
         default=False,
         description="Overwrite existing Zarr archive"
@@ -96,6 +92,14 @@ class ProcessConfig(BaseModel):
     timestamp_format: str = Field(
         default="%Y%m%d_%H%M%S",
         description="Format string for {timestamp} placeholder (strftime format)"
+    )
+    write_local_first: bool = Field(
+        default=False,
+        description="Write to local temp directory first, then upload to GCS (helps with network issues)"
+    )
+    local_temp_dir: Optional[str] = Field(
+        default=None,
+        description="Local temporary directory for write_local_first (default: system temp dir)"
     )
 
 

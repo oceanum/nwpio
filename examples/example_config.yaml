@@ -65,11 +65,15 @@ process:
   #   latitude: 100
   #   longitude: 100
   
-  # Compression algorithm: default, zstd, lz4, or none
-  compression: default
-  
   # Overwrite existing Zarr archive
   overwrite: false
+  
+  # Write to local temp directory first, then upload to GCS
+  # Helps avoid network issues when writing large Zarr archives
+  write_local_first: false
+  
+  # Optional: Custom local temp directory (default: system temp)
+  # local_temp_dir: /tmp/zarr-temp
 
 # Cleanup GRIB files after processing
 cleanup_grib: false

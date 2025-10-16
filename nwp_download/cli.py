@@ -180,15 +180,20 @@ def download(
     help="Chunking specification as JSON string (e.g., '{\"time\": 1, \"latitude\": 100}')",
 )
 @click.option(
-    "--compression",
-    type=click.Choice(["default", "zstd", "lz4", "none"]),
-    default="default",
-    help="Compression algorithm for Zarr",
-)
-@click.option(
     "--overwrite",
     is_flag=True,
     help="Overwrite existing Zarr archive",
+)
+@click.option(
+    "--write-local-first",
+    is_flag=True,
+    help="Write to local temp directory first, then upload to GCS (helps with network issues)",
+)
+@click.option(
+    "--local-temp-dir",
+    type=str,
+    default=None,
+    help="Local temporary directory for write-local-first",
 )
 @click.option(
     "--inspect",
@@ -201,8 +206,9 @@ def process(
     output: str,
     filter_keys: Optional[str],
     chunks: Optional[str],
-    compression: str,
     overwrite: bool,
+    write_local_first: bool,
+    local_temp_dir: Optional[str],
     inspect: bool,
 ):
     """Process GRIB files and convert to Zarr."""
@@ -223,8 +229,9 @@ def process(
             output_path=output,
             filter_by_keys=filter_dict,
             chunks=chunks_dict,
-            compression=compression,
             overwrite=overwrite,
+            write_local_first=write_local_first,
+            local_temp_dir=local_temp_dir,
         )
 
         # Create processor

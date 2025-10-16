@@ -71,9 +71,10 @@ config = ProcessConfig(
   - `{cycle}`: Forecast cycle (e.g., "00z", "12z")
 - `filter_by_keys` (dict, optional): Additional GRIB key filters
 - `chunks` (dict, optional): Chunking specification for Zarr
-- `compression` (str): Compression algorithm. Options: "default", "zstd", "lz4", "none"
 - `overwrite` (bool): Whether to overwrite existing Zarr archive (default: False)
 - `timestamp_format` (str): Format string for `{timestamp}` placeholder (default: "%Y%m%d_%H%M%S")
+- `write_local_first` (bool): Write to local temp directory first, then upload to GCS (default: False)
+- `local_temp_dir` (str, optional): Local temporary directory for write_local_first (default: system temp dir)
 
 **Timestamp Examples:**
 
@@ -95,6 +96,13 @@ ProcessConfig(
 ProcessConfig(
     output_path="gs://bucket/forecasts/gfs_{date}_{cycle}.zarr",
     # Results in: forecasts/gfs_20240101_00z.zarr, gfs_20240101_06z.zarr, etc.
+)
+
+# Write locally first to avoid network issues
+ProcessConfig(
+    output_path="gs://bucket/forecast_{date}_{cycle}.zarr",
+    write_local_first=True,  # Write to temp dir, then upload
+    local_temp_dir="/tmp/zarr-staging",  # Optional custom temp dir
 )
 ```
 

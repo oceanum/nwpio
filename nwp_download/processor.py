@@ -214,49 +214,105 @@ class GribProcessor:
             dataset: xarray Dataset to write
             output_path: Output path for Zarr archive
         """
-        # Configure encoding
-        encoding = {}
-        for var in dataset.data_vars:
-            encoding[var] = {"compressor": self._get_compressor()}
-
         # Write mode
         mode = "w" if self.config.overwrite else "w-"
 
-        # Write to Zarr
-        if is_gcs_path(output_path):
-            # Write to GCS using gcsfs
+        # Determine if we need to write locally first then upload
+        if is_gcs_path(output_path) and self.config.write_local_first:
+            self._write_local_then_upload(dataset, output_path, mode)
+        elif is_gcs_path(output_path):
+            # Write directly to GCS
+            logger.info("Writing directly to GCS...")
             dataset.to_zarr(
                 output_path,
                 mode=mode,
-                encoding=encoding,
                 consolidated=True,
             )
         else:
             # Write to local filesystem
+            logger.info(f"Writing to local filesystem: {output_path}")
             local_path = Path(output_path)
             local_path.parent.mkdir(parents=True, exist_ok=True)
             dataset.to_zarr(
                 local_path,
                 mode=mode,
-                encoding=encoding,
                 consolidated=True,
             )
 
-    def _get_compressor(self):
-        """Get compressor for Zarr encoding."""
-        import zarr
+    def _write_local_then_upload(self, dataset: xr.Dataset, gcs_path: str, mode: str) -> None:
+        """
+        Write Zarr to local temp directory, then upload to GCS.
 
-        if self.config.compression == "default":
-            return zarr.Blosc(cname="zstd", clevel=3, shuffle=zarr.Blosc.SHUFFLE)
-        elif self.config.compression == "zstd":
-            return zarr.Blosc(cname="zstd", clevel=5, shuffle=zarr.Blosc.SHUFFLE)
-        elif self.config.compression == "lz4":
-            return zarr.Blosc(cname="lz4", clevel=5, shuffle=zarr.Blosc.SHUFFLE)
-        elif self.config.compression == "none":
-            return None
+        Args:
+            dataset: xarray Dataset to write
+            gcs_path: Final GCS destination path
+            mode: Write mode ('w' or 'w-')
+        """
+        import tempfile
+        import shutil
+        from google.cloud import storage
+
+        # Determine temp directory
+        if self.config.local_temp_dir:
+            temp_base = Path(self.config.local_temp_dir)
+            temp_base.mkdir(parents=True, exist_ok=True)
+            temp_dir = tempfile.mkdtemp(dir=temp_base)
         else:
-            logger.warning(f"Unknown compression: {self.config.compression}, using default")
-            return zarr.Blosc(cname="zstd", clevel=3, shuffle=zarr.Blosc.SHUFFLE)
+            temp_dir = tempfile.mkdtemp()
+
+        temp_path = Path(temp_dir)
+        zarr_name = Path(gcs_path).name
+        local_zarr_path = temp_path / zarr_name
+
+        try:
+            # Write to local temp directory
+            logger.info(f"Writing to local temp directory: {local_zarr_path}")
+            dataset.to_zarr(
+                str(local_zarr_path),
+                mode="w",  # Always overwrite in temp
+                consolidated=True,
+            )
+
+            # Upload to GCS
+            logger.info(f"Uploading to GCS: {gcs_path}")
+            self._upload_zarr_to_gcs(local_zarr_path, gcs_path)
+
+            logger.info("Upload complete")
+
+        finally:
+            # Clean up temp directory
+            logger.info(f"Cleaning up temp directory: {temp_dir}")
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+    def _upload_zarr_to_gcs(self, local_zarr_path: Path, gcs_path: str) -> None:
+        """
+        Upload a local Zarr archive to GCS.
+
+        Args:
+            local_zarr_path: Local path to Zarr archive
+            gcs_path: GCS destination path
+        """
+        from google.cloud import storage
+        from nwp_download.utils import parse_gcs_path, get_gcs_client
+
+        bucket_name, blob_prefix = parse_gcs_path(gcs_path)
+        client = get_gcs_client()
+        bucket = client.bucket(bucket_name)
+
+        # Upload all files in the Zarr archive
+        zarr_files = list(local_zarr_path.rglob("*"))
+        logger.info(f"Uploading {len(zarr_files)} files...")
+
+        from tqdm import tqdm
+        for local_file in tqdm(zarr_files, desc="Uploading to GCS"):
+            if local_file.is_file():
+                # Calculate relative path within zarr archive
+                relative_path = local_file.relative_to(local_zarr_path)
+                blob_name = f"{blob_prefix}/{relative_path}".replace("\\", "/")
+
+                # Upload file
+                blob = bucket.blob(blob_name)
+                blob.upload_from_filename(str(local_file))
 
     def inspect_grib_files(self) -> dict:
         """
