@@ -27,6 +27,7 @@ class DataSource:
         source_bucket: str,
         destination_bucket: str,
         destination_prefix: str = "",
+        local_download_dir: str = None,
     ):
         self.product = product
         self.resolution = resolution
@@ -35,6 +36,7 @@ class DataSource:
         self.source_bucket = source_bucket
         self.destination_bucket = destination_bucket
         self.destination_prefix = destination_prefix
+        self.local_download_dir = local_download_dir
 
     def get_file_list(self) -> List[GribFileSpec]:
         """Generate list of GRIB files to download."""
@@ -67,11 +69,22 @@ class GFSSource(DataSource):
                 f"gfs.t{cycle_str}z.pgrb2.{self.resolution}.f{lead_str}"
             )
 
-            dest_path = (
-                f"gs://{self.destination_bucket}/{self.destination_prefix}"
-                f"gfs/{self.resolution}/{date_str}/{cycle_str}/"
-                f"gfs.t{cycle_str}z.pgrb2.{self.resolution}.f{lead_str}"
-            )
+            # Generate destination path (local or GCS)
+            if self.destination_bucket:
+                dest_path = (
+                    f"gs://{self.destination_bucket}/{self.destination_prefix}"
+                    f"gfs/{self.resolution}/{date_str}/{cycle_str}/"
+                    f"gfs.t{cycle_str}z.pgrb2.{self.resolution}.f{lead_str}"
+                )
+            else:
+                # Local download path
+                import os
+                local_dir = self.local_download_dir or "/tmp/nwp-data"
+                dest_path = os.path.join(
+                    local_dir,
+                    f"gfs/{self.resolution}/{date_str}/{cycle_str}",
+                    f"gfs.t{cycle_str}z.pgrb2.{self.resolution}.f{lead_str}"
+                )
 
             files.append(
                 GribFileSpec(
@@ -168,6 +181,7 @@ def create_data_source(
     source_bucket: str,
     destination_bucket: str,
     destination_prefix: str = "",
+    local_download_dir: str = None,
 ) -> DataSource:
     """Factory function to create appropriate data source."""
     if product == "gfs":
@@ -179,6 +193,7 @@ def create_data_source(
             source_bucket=source_bucket,
             destination_bucket=destination_bucket,
             destination_prefix=destination_prefix,
+            local_download_dir=local_download_dir,
         )
     elif product in ["ecmwf-hres", "ecmwf-ens"]:
         return ECMWFSource(
@@ -189,6 +204,7 @@ def create_data_source(
             source_bucket=source_bucket,
             destination_bucket=destination_bucket,
             destination_prefix=destination_prefix,
+            local_download_dir=local_download_dir,
         )
     else:
         raise ValueError(f"Unknown product: {product}")

@@ -1,8 +1,9 @@
 cleanup_grib: true
 download:
   cycle: '2024-01-01T00:00:00'
-  destination_bucket: oceanum-data-dev
+  destination_bucket: null  # null = download to local, otherwise GCS bucket name
   destination_prefix: nwp-data/
+  local_download_dir: /tmp/nwp-data  # Local directory for downloads
   max_lead_time: 6
   overwrite: false
   product: gfs

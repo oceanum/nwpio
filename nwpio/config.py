@@ -19,11 +19,16 @@ class DownloadConfig(BaseModel):
     cycle: datetime = Field(description="Forecast initialization time (cycle)")
     max_lead_time: int = Field(description="Maximum lead time in hours", gt=0)
     source_bucket: str = Field(description="Source GCS bucket containing GRIB files")
-    destination_bucket: str = Field(
-        description="Destination GCS bucket for downloaded files"
+    destination_bucket: Optional[str] = Field(
+        default=None,
+        description="Destination GCS bucket for downloaded files (if None, downloads to local)"
     )
     destination_prefix: Optional[str] = Field(
         default=None, description="Optional prefix for destination paths"
+    )
+    local_download_dir: Optional[str] = Field(
+        default=None,
+        description="Local directory to download files to (if destination_bucket is None)"
     )
     overwrite: bool = Field(default=False, description="Overwrite existing files")
 

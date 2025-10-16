@@ -40,6 +40,7 @@ class GribDownloader:
             source_bucket=config.source_bucket,
             destination_bucket=config.destination_bucket,
             destination_prefix=config.destination_prefix or "",
+            local_download_dir=config.local_download_dir,
         )
 
     def download(self) -> List[str]:
@@ -96,29 +97,60 @@ class GribDownloader:
         Returns:
             Tuple of (success, destination_path)
         """
-        # Parse source and destination paths
-        source_bucket, source_blob = parse_gcs_path(spec.source_path)
-        dest_bucket, dest_blob = parse_gcs_path(spec.destination_path)
+        # Check if downloading to local or GCS
+        if spec.destination_path.startswith("gs://"):
+            # GCS to GCS copy
+            source_bucket, source_blob = parse_gcs_path(spec.source_path)
+            dest_bucket, dest_blob = parse_gcs_path(spec.destination_path)
 
-        # Check if destination already exists
-        if not self.config.overwrite:
-            if gcs_blob_exists(dest_bucket, dest_blob, self.client):
+            # Check if destination already exists
+            if not self.config.overwrite:
+                if gcs_blob_exists(dest_bucket, dest_blob, self.client):
+                    logger.debug(f"Skipping existing file: {spec.destination_path}")
+                    return True, spec.destination_path
+
+            # Check if source exists
+            if not gcs_blob_exists(source_bucket, source_blob, self.client):
+                logger.warning(f"Source file not found: {spec.source_path}")
+                return False, spec.destination_path
+
+            # Copy the file
+            success = copy_gcs_blob(
+                source_bucket=source_bucket,
+                source_blob=source_blob,
+                dest_bucket=dest_bucket,
+                dest_blob=dest_blob,
+                client=self.client,
+            )
+        else:
+            # GCS to local download
+            from pathlib import Path
+            import fsspec
+            
+            local_path = Path(spec.destination_path)
+            
+            # Check if destination already exists
+            if not self.config.overwrite and local_path.exists():
                 logger.debug(f"Skipping existing file: {spec.destination_path}")
                 return True, spec.destination_path
-
-        # Check if source exists
-        if not gcs_blob_exists(source_bucket, source_blob, self.client):
-            logger.warning(f"Source file not found: {spec.source_path}")
-            return False, spec.destination_path
-
-        # Copy the file
-        success = copy_gcs_blob(
-            source_bucket=source_bucket,
-            source_blob=source_blob,
-            dest_bucket=dest_bucket,
-            dest_blob=dest_blob,
-            client=self.client,
-        )
+            
+            # Create parent directory
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Download from GCS
+            try:
+                fs = fsspec.filesystem("gs")
+                source_bucket, source_blob = parse_gcs_path(spec.source_path)
+                gcs_path = f"{source_bucket}/{source_blob}"
+                
+                with fs.open(gcs_path, "rb") as src:
+                    with open(local_path, "wb") as dst:
+                        dst.write(src.read())
+                
+                success = True
+            except Exception as e:
+                logger.error(f"Failed to download {spec.source_path}: {e}")
+                success = False
 
         if success:
             logger.debug(f"Downloaded: {spec.destination_path}")
