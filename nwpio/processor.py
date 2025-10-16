@@ -92,6 +92,11 @@ class GribProcessor:
             logger.info("Cleaning dataset coordinates...")
             combined_ds = self._clean_dataset(combined_ds)
 
+        # Rename variables if requested
+        if self.config.rename_vars:
+            logger.info(f"Renaming variables: {self.config.rename_vars}")
+            combined_ds = combined_ds.rename(self.config.rename_vars)
+
         # Apply chunking if specified
         if self.config.chunks:
             logger.info(f"Applying chunking: {self.config.chunks}")
@@ -183,8 +188,11 @@ class GribProcessor:
                 grib_files.extend(path.glob("ecmwf.*"))
                 return [str(f) for f in sorted(set(grib_files))]
             else:
-                # Try glob pattern
-                return [str(f) for f in Path(".").glob(grib_path)]
+                # Path doesn't exist
+                raise FileNotFoundError(
+                    f"GRIB path does not exist: {grib_path}\n"
+                    f"Make sure to run the download step first or provide a valid grib_path."
+                )
 
     def _load_grib_files_parallel(self, grib_files: List[str]) -> List[xr.Dataset]:
         """

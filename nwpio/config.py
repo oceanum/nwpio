@@ -134,6 +134,10 @@ class ProcessConfig(BaseModel):
         default=True,
         description="Clean dataset coordinates before writing (keeps only time, latitude, longitude)",
     )
+    rename_vars: Optional[dict] = Field(
+        default=None,
+        description="Rename variables before writing (e.g., {'u10': 'u', 'v10': 'v'})",
+    )
 
 
 class WorkflowConfig(BaseModel):

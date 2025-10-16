@@ -224,6 +224,12 @@ def download(
     help="Skip cleaning coordinates (keep all GRIB metadata coordinates)",
 )
 @click.option(
+    "--rename-vars",
+    type=str,
+    default=None,
+    help='Rename variables as JSON string (e.g., \'{"u10": "u", "v10": "v"}\')',
+)
+@click.option(
     "--inspect",
     is_flag=True,
     help="Inspect GRIB files without processing",
@@ -243,6 +249,7 @@ def process(
     no_verify_upload: bool,
     max_grib_workers: int,
     no_clean_coords: bool,
+    rename_vars: Optional[str],
     inspect: bool,
 ):
     """Process GRIB files and convert to Zarr."""
@@ -255,6 +262,7 @@ def process(
         # Parse optional JSON parameters
         filter_dict = json.loads(filter_keys) if filter_keys else None
         chunks_dict = json.loads(chunks) if chunks else None
+        rename_dict = json.loads(rename_vars) if rename_vars else None
 
         # Create configuration
         config = ProcessConfig(
@@ -272,6 +280,7 @@ def process(
             verify_upload=not no_verify_upload,
             max_grib_workers=max_grib_workers,
             clean_coords=not no_clean_coords,
+            rename_vars=rename_dict,
         )
 
         # Create processor
