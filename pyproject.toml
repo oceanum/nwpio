@@ -21,6 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 
 dependencies = [
@@ -60,15 +61,15 @@ where = ["."]
 include = ["nwpio*"]
 
 [tool.black]
-line-length = 100
-target-version = ["py39", "py310", "py311"]
+line-length = 88
+target-version = ["py39", "py310", "py311", "py312"]
 
 [tool.ruff]
-line-length = 100
-target-version = "py39"
+line-length = 88
+target-version = "py312"
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
