@@ -48,17 +48,17 @@ class GribDownloader:
         Validate that all required files are available in the source bucket.
         Also checks that the next lead time file exists to ensure the last
         required file is fully uploaded.
-        
+
         Raises:
             FileNotFoundError: If any required files are missing, with detailed
                              information about which files are missing and available
         """
         import fsspec
         from datetime import timedelta
-        
+
         file_specs = self.data_source.get_file_list()
         next_lead_time = self.data_source.get_next_lead_time()
-        
+
         # Build the next file spec for validation
         validation_specs = list(file_specs)
         if next_lead_time is not None:
@@ -82,8 +82,9 @@ class GribDownloader:
                     f"{date_str}/{cycle_str}/{self.config.resolution}/"
                     f"ecmwf.{product_type}.{cycle_str}z.{self.config.resolution}.f{lead_str}.grib"
                 )
-            
+
             from nwpio.sources import GribFileSpec
+
             next_spec = GribFileSpec(
                 source_path=next_source_path,
                 destination_path="",  # Not needed for validation
@@ -91,80 +92,96 @@ class GribDownloader:
                 forecast_time=self.config.cycle + timedelta(hours=next_lead_time),
             )
             validation_specs.append(next_spec)
-        
+
         # Check which files exist
         fs = fsspec.filesystem("gs")
         missing_files = []
         available_files = []
-        
+
         for spec in validation_specs:
             bucket_name, blob_path = parse_gcs_path(spec.source_path)
             gcs_path = f"{bucket_name}/{blob_path}"
-            
+
             if not fs.exists(gcs_path):
                 missing_files.append(spec)
             else:
                 available_files.append(spec)
-        
+
         if missing_files:
             # Separate required vs validation file
-            required_missing = [s for s in missing_files if s.lead_time <= self.config.max_lead_time]
-            validation_missing = [s for s in missing_files if s.lead_time > self.config.max_lead_time]
-            
+            required_missing = [
+                s for s in missing_files if s.lead_time <= self.config.max_lead_time
+            ]
+            validation_missing = [
+                s for s in missing_files if s.lead_time > self.config.max_lead_time
+            ]
+
             # Build detailed error message
             error_lines = [
-                f"\n{'='*80}",
-                f"GRIB FILES NOT READY - Forecast cycle incomplete",
-                f"{'='*80}",
+                f"\n{'=' * 80}",
+                "GRIB FILES NOT READY - Forecast cycle incomplete",
+                f"{'=' * 80}",
                 f"Product: {self.config.product}",
                 f"Cycle: {self.config.cycle.strftime('%Y-%m-%d %H:%M:%S')} UTC",
                 f"Resolution: {self.config.resolution}",
                 f"Requested lead time: 0-{self.config.max_lead_time}h",
-                f"",
-                f"Status:",
+                "",
+                "Status:",
                 f"  ✓ Available: {len(available_files)} files",
                 f"  ✗ Missing: {len(missing_files)} files",
-                f"",
+                "",
             ]
-            
+
             if required_missing:
                 # Get lead times
                 missing_lead_times = sorted([s.lead_time for s in required_missing])
-                available_lead_times = sorted([s.lead_time for s in available_files if s.lead_time <= self.config.max_lead_time])
-                
-                error_lines.extend([
-                    f"Missing required lead times ({len(missing_lead_times)}):",
-                    f"  {missing_lead_times[:20]}{'...' if len(missing_lead_times) > 20 else ''}",
-                    f"",
-                    f"Available lead times ({len(available_lead_times)}):",
-                    f"  {available_lead_times[:20]}{'...' if len(available_lead_times) > 20 else ''}",
-                    f"",
-                ])
-            
+                available_lead_times = sorted(
+                    [
+                        s.lead_time
+                        for s in available_files
+                        if s.lead_time <= self.config.max_lead_time
+                    ]
+                )
+
+                error_lines.extend(
+                    [
+                        f"Missing required lead times ({len(missing_lead_times)}):",
+                        f"  {missing_lead_times[:20]}{'...' if len(missing_lead_times) > 20 else ''}",
+                        "",
+                        f"Available lead times ({len(available_lead_times)}):",
+                        f"  {available_lead_times[:20]}{'...' if len(available_lead_times) > 20 else ''}",
+                        "",
+                    ]
+                )
+
             if validation_missing:
-                error_lines.extend([
-                    f"Validation file missing:",
-                    f"  Lead time {next_lead_time}h not yet available",
-                    f"  (This ensures lead time {self.config.max_lead_time}h is fully uploaded)",
-                    f"",
-                ])
-            
-            error_lines.extend([
-                f"Action:",
-                f"  The forecast cycle is still processing. This task will be retried.",
-                f"  Typical GFS processing time: 3-4 hours after cycle start",
-                f"{'='*80}",
-            ])
-            
+                error_lines.extend(
+                    [
+                        "Validation file missing:",
+                        f"  Lead time {next_lead_time}h not yet available",
+                        f"  (This ensures lead time {self.config.max_lead_time}h is fully uploaded)",
+                        "",
+                    ]
+                )
+
+            error_lines.extend(
+                [
+                    "Action:",
+                    "  The forecast cycle is still processing. This task will be retried.",
+                    "  Typical GFS processing time: 3-4 hours after cycle start",
+                    f"{'=' * 80}",
+                ]
+            )
+
             error_msg = "\n".join(error_lines)
             logger.error(error_msg)
-            
+
             raise FileNotFoundError(
                 f"Missing {len(missing_files)} GRIB files for cycle "
                 f"{self.config.cycle.strftime('%Y%m%d_%Hz')}. "
                 f"Forecast not yet complete. See logs for details."
             )
-        
+
         logger.info(
             f"✓ All {len(file_specs)} required files available "
             f"(validated with lead time {next_lead_time}h)"
@@ -253,27 +270,27 @@ class GribDownloader:
             # GCS to local download
             from pathlib import Path
             import fsspec
-            
+
             local_path = Path(spec.destination_path)
-            
+
             # Check if destination already exists
             if not self.config.overwrite and local_path.exists():
                 logger.debug(f"Skipping existing file: {spec.destination_path}")
                 return True, spec.destination_path
-            
+
             # Create parent directory
             local_path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # Download from GCS
             try:
                 fs = fsspec.filesystem("gs")
                 source_bucket, source_blob = parse_gcs_path(spec.source_path)
                 gcs_path = f"{source_bucket}/{source_blob}"
-                
+
                 with fs.open(gcs_path, "rb") as src:
                     with open(local_path, "wb") as dst:
                         dst.write(src.read())
-                
+
                 success = True
             except Exception as e:
                 logger.error(f"Failed to download {spec.source_path}: {e}")

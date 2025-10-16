@@ -21,20 +21,20 @@ class DownloadConfig(BaseModel):
     source_bucket: str = Field(description="Source GCS bucket containing GRIB files")
     destination_bucket: Optional[str] = Field(
         default=None,
-        description="Destination GCS bucket for downloaded files (if None, downloads to local)"
+        description="Destination GCS bucket for downloaded files (if None, downloads to local)",
     )
     destination_prefix: Optional[str] = Field(
         default=None, description="Optional prefix for destination paths"
     )
     local_download_dir: Optional[str] = Field(
         default=None,
-        description="Local directory to download files to (if destination_bucket is None)"
+        description="Local directory to download files to (if destination_bucket is None)",
     )
     overwrite: bool = Field(default=False, description="Overwrite existing files")
     validate_before_download: bool = Field(
         default=True,
         description="Validate all files are available before starting download. "
-                    "Raises exception if files are missing (fail fast for retry logic)."
+        "Raises exception if files are missing (fail fast for retry logic).",
     )
 
     @field_validator("cycle")
@@ -76,7 +76,7 @@ class ProcessConfig(BaseModel):
 
     grib_path: Optional[str] = Field(
         default=None,
-        description="Path to GRIB files (local or GCS). If None, will use downloaded files location."
+        description="Path to GRIB files (local or GCS). If None, will use downloaded files location.",
     )
     variables: List[str] = Field(
         description="List of variables to extract from GRIB files"

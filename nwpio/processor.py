@@ -27,7 +27,9 @@ class GribProcessor:
         """
         self.config = config
         self.cycle = cycle
-        logger.debug(f"GribProcessor initialized with cycle: {cycle} (type: {type(cycle)})")
+        logger.debug(
+            f"GribProcessor initialized with cycle: {cycle} (type: {type(cycle)})"
+        )
 
     def process(self) -> str:
         """
@@ -105,9 +107,11 @@ class GribProcessor:
             List of GRIB file paths
         """
         grib_path = self._format_grib_path()
-        
+
         if not grib_path:
-            raise ValueError("grib_path is not set. Either provide it in config or run download step first.")
+            raise ValueError(
+                "grib_path is not set. Either provide it in config or run download step first."
+            )
 
         if is_gcs_path(grib_path):
             # Use fsspec to list GCS files
@@ -173,16 +177,16 @@ class GribProcessor:
             if is_gcs_path(file_path):
                 import tempfile
                 import shutil
-                
+
                 # Download to temp file since cfgrib doesn't support GCS directly
                 fs = fsspec.filesystem("gs")
                 gcs_path = file_path.replace("gs://", "")
-                
+
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".grib") as tmp:
                     with fs.open(gcs_path, "rb") as f:
                         shutil.copyfileobj(f, tmp)
                     tmp_path = tmp.name
-                
+
                 try:
                     ds = xr.open_dataset(
                         tmp_path,
@@ -193,6 +197,7 @@ class GribProcessor:
                     ds = ds.load()
                 finally:
                     import os
+
                     os.unlink(tmp_path)
             else:
                 ds = xr.open_dataset(
@@ -236,10 +241,12 @@ class GribProcessor:
         # Check if there are any placeholders
         if "{" not in grib_path:
             return grib_path
-            
+
         # Check if cycle is provided
         if not self.cycle:
-            logger.warning(f"grib_path contains placeholders but no cycle provided: {grib_path}")
+            logger.warning(
+                f"grib_path contains placeholders but no cycle provided: {grib_path}"
+            )
             return grib_path
 
         import re
@@ -375,7 +382,7 @@ class GribProcessor:
             fs = fsspec.filesystem("gs")
             bucket_name, blob_prefix = parse_gcs_path(gcs_path)
             gcs_check_path = f"{bucket_name}/{blob_prefix}"
-            
+
             if fs.exists(gcs_check_path):
                 raise FileExistsError(
                     f"Zarr archive already exists at {gcs_path}. "
@@ -408,7 +415,7 @@ class GribProcessor:
                 fs = fsspec.filesystem("gs")
                 bucket_name, blob_prefix = parse_gcs_path(gcs_path)
                 gcs_check_path = f"{bucket_name}/{blob_prefix}"
-                
+
                 if fs.exists(gcs_check_path):
                     logger.info(f"Deleting existing Zarr archive: {gcs_path}")
                     fs.rm(gcs_check_path, recursive=True)
@@ -458,7 +465,7 @@ class GribProcessor:
         logger.info(f"Using {max_workers} parallel workers for upload")
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {executor.submit(upload_file, f): f for f in zarr_files}
-            
+
             with tqdm(total=len(zarr_files), desc="Uploading to GCS") as pbar:
                 for future in as_completed(futures):
                     try:
