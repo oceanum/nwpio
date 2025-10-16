@@ -219,6 +219,11 @@ def download(
     help="Maximum number of parallel workers for loading GRIB files",
 )
 @click.option(
+    "--no-clean-coords",
+    is_flag=True,
+    help="Skip cleaning coordinates (keep all GRIB metadata coordinates)",
+)
+@click.option(
     "--inspect",
     is_flag=True,
     help="Inspect GRIB files without processing",
@@ -237,6 +242,7 @@ def process(
     upload_max_retries: int,
     no_verify_upload: bool,
     max_grib_workers: int,
+    no_clean_coords: bool,
     inspect: bool,
 ):
     """Process GRIB files and convert to Zarr."""
@@ -265,6 +271,7 @@ def process(
             upload_max_retries=upload_max_retries,
             verify_upload=not no_verify_upload,
             max_grib_workers=max_grib_workers,
+            clean_coords=not no_clean_coords,
         )
 
         # Create processor

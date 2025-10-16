@@ -87,6 +87,11 @@ class GribProcessor:
 
         combined_ds = combined_ds[vars_to_extract]
 
+        # Clean coordinates if requested
+        if self.config.clean_coords:
+            logger.info("Cleaning dataset coordinates...")
+            combined_ds = self._clean_dataset(combined_ds)
+
         # Apply chunking if specified
         if self.config.chunks:
             logger.info(f"Applying chunking: {self.config.chunks}")
@@ -104,6 +109,26 @@ class GribProcessor:
 
         logger.info("Processing complete")
         return output_path
+
+    def _clean_dataset(self, dataset: xr.Dataset) -> xr.Dataset:
+        """
+        Clean dataset by removing non-dimensional coordinates.
+        
+        Keeps only dimensional coordinates (time, latitude, longitude)
+        and drops all non-dimensional coordinates (GRIB metadata).
+        
+        Args:
+            dataset: Input xarray Dataset
+            
+        Returns:
+            Cleaned xarray Dataset with only dimensional coordinates
+        """
+        # Reset all non-dimensional coordinates (drops GRIB metadata)
+        dataset = dataset.reset_coords(drop=True)
+        
+        logger.info(f"Cleaned dataset - coords: {list(dataset.coords.keys())}, vars: {list(dataset.data_vars.keys())}")
+        
+        return dataset
 
     def _find_grib_files(self) -> List[str]:
         """

@@ -130,6 +130,10 @@ class ProcessConfig(BaseModel):
         default=4,
         description="Maximum number of parallel workers for loading GRIB files (default: 4)",
     )
+    clean_coords: bool = Field(
+        default=True,
+        description="Clean dataset coordinates before writing (keeps only time, latitude, longitude)",
+    )
 
 
 class WorkflowConfig(BaseModel):
