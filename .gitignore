@@ -35,7 +35,11 @@ ENV/
 # Testing
 .pytest_cache/
 .coverage
+coverage.xml
 htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
 
 # Data files
 *.grib
