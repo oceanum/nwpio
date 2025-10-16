@@ -152,24 +152,39 @@ class ECMWFSource(DataSource):
         return files
 
     def _generate_lead_times(self) -> List[int]:
-        """Generate lead times for ECMWF."""
-        # ECMWF typically has hourly output up to max lead time
+        """
+        Generate lead times for ECMWF with variable intervals.
+        
+        ECMWF Ensemble (ENS):
+        - 0-144h: 3-hourly (0, 3, 6, ..., 144)
+        - 144-360h: 6-hourly (150, 156, ..., 360)
+        
+        ECMWF HRES:
+        - 0-90h: hourly (0, 1, 2, ..., 90)
+        - 90-240h: 3-hourly (93, 96, ..., 240)
+        
+        Returns:
+            List of lead times in hours
+        """
         if self.is_ensemble:
-            # Ensemble: 3-hourly for extended range
+            # Ensemble: 3-hourly up to 144h, then 6-hourly up to 360h
             if self.max_lead_time <= 144:
                 return list(range(0, self.max_lead_time + 1, 3))
             else:
-                # 3-hourly up to 144h, then 6-hourly
+                # 3-hourly up to 144h
                 lead_times = list(range(0, 145, 3))
-                lead_times.extend(range(150, self.max_lead_time + 1, 6))
+                # 6-hourly from 150h onwards
+                lead_times.extend(range(150, min(self.max_lead_time + 1, 361), 6))
                 return lead_times
         else:
-            # HRES: hourly up to 90h, then 3-hourly
+            # HRES: hourly up to 90h, then 3-hourly up to 240h
             if self.max_lead_time <= 90:
                 return list(range(0, self.max_lead_time + 1, 1))
             else:
+                # Hourly up to 90h
                 lead_times = list(range(0, 91, 1))
-                lead_times.extend(range(93, self.max_lead_time + 1, 3))
+                # 3-hourly from 93h onwards
+                lead_times.extend(range(93, min(self.max_lead_time + 1, 241), 3))
                 return lead_times
 
 

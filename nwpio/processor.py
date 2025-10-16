@@ -368,6 +368,19 @@ class GribProcessor:
         """
         import tempfile
         import shutil
+        import fsspec
+
+        # Check if destination exists when mode is 'w-'
+        if mode == "w-":
+            fs = fsspec.filesystem("gs")
+            bucket_name, blob_prefix = parse_gcs_path(gcs_path)
+            gcs_check_path = f"{bucket_name}/{blob_prefix}"
+            
+            if fs.exists(gcs_check_path):
+                raise FileExistsError(
+                    f"Zarr archive already exists at {gcs_path}. "
+                    "Set overwrite=true to replace it."
+                )
 
         # Determine temp directory
         if self.config.local_temp_dir:
@@ -389,6 +402,16 @@ class GribProcessor:
                 mode="w",  # Always overwrite in temp
                 consolidated=True,
             )
+
+            # Delete existing Zarr if overwrite=true
+            if mode == "w":
+                fs = fsspec.filesystem("gs")
+                bucket_name, blob_prefix = parse_gcs_path(gcs_path)
+                gcs_check_path = f"{bucket_name}/{blob_prefix}"
+                
+                if fs.exists(gcs_check_path):
+                    logger.info(f"Deleting existing Zarr archive: {gcs_path}")
+                    fs.rm(gcs_check_path, recursive=True)
 
             # Upload to GCS
             logger.info(f"Uploading to GCS: {gcs_path}")
