@@ -4,7 +4,7 @@
 cleanup_grib: false  # Keep GRIB files after processing
 
 download:
-  cycle: '2026-01-01T00:00:00'  # Set this dynamically in your workflow
+  cycle: '2025-10-15T00:00:00'  # Set this dynamically in your workflow
   destination_bucket: null  # Download to local disk
   local_download_dir: /tmp/nwp-data
   max_lead_time: 3  # 10 days (0-120h hourly, 123-240h 3-hourly)
@@ -21,7 +21,7 @@ process:
   - filter_by_keys:
       typeOfLevel: heightAboveGround
       level: 10
-    grib_path: /tmp/nwp-data/gfs/0p25/20240101/00/
+    grib_path: /tmp/nwp-data/gfs/0p25/{cycle:%Y%m%d}/{cycle:%H}/
     output_path: gs://oceanum-data-dev/forecast/gfs_0p25_wind10m_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
     overwrite: true  # Delete existing Zarr before uploading new one
     write_local_first: true  # Write to local temp, then upload
@@ -39,7 +39,7 @@ process:
   - filter_by_keys:
       typeOfLevel: surface
       stepType: instant  # Required to disambiguate surface variables
-    grib_path: /tmp/nwp-data/gfs/0p25/20240101/00/
+    grib_path: /tmp/nwp-data/gfs/0p25/{cycle:%Y%m%d}/{cycle:%H}/
     output_path: gs://oceanum-data-dev/forecast/gfs_0p25_icec_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
     overwrite: true  # Delete existing Zarr before uploading new one
     write_local_first: true  # Write to local temp, then upload
