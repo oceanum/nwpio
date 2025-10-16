@@ -1,0 +1,68 @@
+# Example configuration for NWP Download workflow
+
+download:
+  # Product selection: gfs, ecmwf-hres, or ecmwf-ens
+  product: gfs
+  
+  # Resolution: 0p25 (0.25°), 0p50 (0.5°), 1p00 (1.0°)
+  resolution: 0p25
+  
+  # Forecast initialization time (ISO format)
+  forecast_time: "2024-01-01T00:00:00"
+  
+  # Forecast cycle: 00z, 06z, 12z, or 18z
+  cycle: 00z
+  
+  # Maximum lead time in hours
+  max_lead_time: 120
+  
+  # Source GCS bucket (public archive)
+  source_bucket: gcp-public-data-arco-era5
+  
+  # Destination GCS bucket (your bucket)
+  destination_bucket: your-bucket-name
+  
+  # Optional prefix for destination paths
+  destination_prefix: nwp-data/
+  
+  # Overwrite existing files
+  overwrite: false
+
+process:
+  # Path to GRIB files (output from download step)
+  grib_path: gs://your-bucket-name/nwp-data/gfs/0p25/20240101/00/
+  
+  # Variables to extract from GRIB files
+  # Common variables:
+  #   - t2m: 2-meter temperature
+  #   - u10, v10: 10-meter wind components
+  #   - tp: Total precipitation
+  #   - msl: Mean sea level pressure
+  #   - sp: Surface pressure
+  variables:
+    - t2m
+    - u10
+    - v10
+    - tp
+  
+  # Output Zarr archive path
+  output_path: gs://your-bucket-name/output/forecast_20240101_00z.zarr
+  
+  # Optional: Filter GRIB messages by keys
+  # filter_by_keys:
+  #   typeOfLevel: surface
+  
+  # Optional: Chunking specification for Zarr
+  # chunks:
+  #   time: 1
+  #   latitude: 100
+  #   longitude: 100
+  
+  # Compression algorithm: default, zstd, lz4, or none
+  compression: default
+  
+  # Overwrite existing Zarr archive
+  overwrite: false
+
+# Cleanup GRIB files after processing
+cleanup_grib: false

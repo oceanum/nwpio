@@ -1,0 +1,98 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nwp-download
+  namespace: default
+spec:
+  # Run every 6 hours at minute 0
+  schedule: "0 */6 * * *"
+  
+  # Keep last 3 successful and 1 failed job
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          
+          # Service account with GCS access
+          serviceAccountName: nwp-download-sa
+          
+          containers:
+          - name: nwp-download
+            image: your-registry/nwp-download:latest
+            
+            command:
+            - nwp-download
+            - run
+            - --config
+            - /config/config.yaml
+            
+            # Resource limits
+            resources:
+              requests:
+                memory: "4Gi"
+                cpu: "2"
+              limits:
+                memory: "8Gi"
+                cpu: "4"
+            
+            # Mount configuration
+            volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            
+            # Environment variables
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/google/key.json
+            
+            # Mount GCS credentials
+            volumeMounts:
+            - name: gcs-credentials
+              mountPath: /var/secrets/google
+              readOnly: true
+          
+          volumes:
+          - name: config
+            configMap:
+              name: nwp-download-config
+          
+          - name: gcs-credentials
+            secret:
+              secretName: gcs-key
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nwp-download-config
+  namespace: default
+data:
+  config.yaml: |
+    download:
+      product: gfs
+      resolution: 0p25
+      forecast_time: "2024-01-01T00:00:00"
+      cycle: 00z
+      max_lead_time: 120
+      source_bucket: gcp-public-data-arco-era5
+      destination_bucket: your-bucket-name
+      destination_prefix: nwp-data/
+      overwrite: false
+    
+    process:
+      grib_path: gs://your-bucket-name/nwp-data/
+      variables:
+        - t2m
+        - u10
+        - v10
+        - tp
+      output_path: gs://your-bucket-name/output.zarr
+      compression: default
+      overwrite: false
+    
+    cleanup_grib: false
