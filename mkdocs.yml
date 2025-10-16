@@ -1,5 +1,5 @@
 site_name: NWPIO Documentation
-site_description: Download and process NWP forecast data from GFS and ECMWF
+site_description: Download and process NWP forecast data from cloud archives
 site_author: NWPIO Contributors
 site_url: https://nwpio.readthedocs.io
 

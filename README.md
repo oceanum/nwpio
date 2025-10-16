@@ -1,10 +1,10 @@
-# NWP Download
+# NWPIO
 
-A Python library for downloading and processing Numerical Weather Prediction (NWP) forecast data from GFS and ECMWF.
+A Python library for downloading and processing Numerical Weather Prediction (NWP) forecast data from cloud archives.
 
 ## Features
 
-- **Download GRIB files** from cloud archives (GCS) for GFS and ECMWF models
+- **Download GRIB files** from cloud archives (GCS) for NWP models such as GFS and ECMWF
 - **Flexible configuration** for product type, resolution, forecast cycles, and lead times
 - **Extract variables** from GRIB files using xarray and cfgrib
 - **Convert to Zarr** format for efficient storage and access

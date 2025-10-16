@@ -1,8 +1,8 @@
 # NWPIO
 
-**Download and process NWP forecast data from GFS and ECMWF**
+**Download and process NWP forecast data from cloud archives**
 
-NWPIO is a Python library for downloading GRIB files from cloud archives and converting them to Zarr format for efficient analysis. It supports GFS and ECMWF forecast data with a simple, intuitive API.
+NWPIO is a Python library for downloading GRIB files from cloud archives and converting them to Zarr format for efficient analysis. It supports various NWP models such as GFS and ECMWF with a simple, intuitive API.
 
 ## Features
 

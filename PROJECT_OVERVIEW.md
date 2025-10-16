@@ -2,7 +2,7 @@
 
 ## Summary
 
-A production-ready Python library for downloading and processing Numerical Weather Prediction (NWP) forecast data from GFS and ECMWF. Designed for cloud-native workflows with GCS integration and parallel processing.
+A production-ready Python library for downloading and processing Numerical Weather Prediction (NWP) forecast data from cloud archives. Designed for cloud-native workflows with GCS integration and parallel processing. Supports various NWP models such as GFS and ECMWF.
 
 ## Project Structure
 
@@ -42,10 +42,10 @@ nwpio/
 ## Key Features
 
 ### 1. **Flexible Data Download**
-- Support for GFS and ECMWF (HRES/ENS) products
+- Support for various NWP models (e.g., GFS, ECMWF HRES/ENS)
 - Multiple resolutions (0.25°, 0.5°, 1.0°, etc.)
 - Configurable forecast cycles (00z, 06z, 12z, 18z)
-- Variable lead time horizons (up to 384h for GFS)
+- Variable lead time horizons (up to 384h)
 - Parallel downloads with configurable workers
 - GCS-to-GCS copying (no local storage needed)
 
