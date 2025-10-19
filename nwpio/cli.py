@@ -347,13 +347,14 @@ def run(
             raise click.ClickException(
                 "Config file not specified. Provide via --config argument or $CONFIG environment variable."
             )
-        
+
         # Load configuration
         workflow_config = WorkflowConfig.from_yaml(config)
-        
+
         # Set cycle from CLI/env or validate it's in config
         if cycle:
             from datetime import datetime
+
             workflow_config.download.cycle = datetime.fromisoformat(cycle)
         elif workflow_config.download.cycle is None:
             raise click.ClickException(
@@ -362,7 +363,9 @@ def run(
 
         # Log workflow information
         logger.info(f"Starting workflow for cycle: {workflow_config.download.cycle}")
-        logger.info(f"Product: {workflow_config.download.product} {workflow_config.download.resolution}")
+        logger.info(
+            f"Product: {workflow_config.download.product} {workflow_config.download.resolution}"
+        )
         logger.info(f"Max lead time: {workflow_config.download.max_lead_time}h")
 
         downloaded_files = []

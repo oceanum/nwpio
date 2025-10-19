@@ -52,7 +52,9 @@ class GribProcessor:
         # Load and process GRIB files
         if self.config.max_grib_workers > 1:
             # Parallel loading
-            logger.info(f"Loading GRIB files with {self.config.max_grib_workers} workers...")
+            logger.info(
+                f"Loading GRIB files with {self.config.max_grib_workers} workers..."
+            )
             datasets = self._load_grib_files_parallel(grib_files)
         else:
             # Sequential loading
@@ -118,21 +120,23 @@ class GribProcessor:
     def _clean_dataset(self, dataset: xr.Dataset) -> xr.Dataset:
         """
         Clean dataset by removing non-dimensional coordinates.
-        
+
         Keeps only dimensional coordinates (time, latitude, longitude)
         and drops all non-dimensional coordinates (GRIB metadata).
-        
+
         Args:
             dataset: Input xarray Dataset
-            
+
         Returns:
             Cleaned xarray Dataset with only dimensional coordinates
         """
         # Reset all non-dimensional coordinates (drops GRIB metadata)
         dataset = dataset.reset_coords(drop=True)
-        
-        logger.info(f"Cleaned dataset - coords: {list(dataset.coords.keys())}, vars: {list(dataset.data_vars.keys())}")
-        
+
+        logger.info(
+            f"Cleaned dataset - coords: {list(dataset.coords.keys())}, vars: {list(dataset.data_vars.keys())}"
+        )
+
         return dataset
 
     def _find_grib_files(self) -> List[str]:
@@ -235,9 +239,7 @@ class GribProcessor:
 
         # Report any failures
         if failed_files:
-            error_summary = "\n".join(
-                [f"  - {f}: {err}" for f, err in failed_files]
-            )
+            error_summary = "\n".join([f"  - {f}: {err}" for f, err in failed_files])
             raise RuntimeError(
                 f"Failed to load {len(failed_files)}/{len(grib_files)} GRIB files:\n{error_summary}"
             )
@@ -304,11 +306,11 @@ class GribProcessor:
                 # Drop the reference time coordinate first if it exists as a non-dimension coord
                 if "time" in ds.coords and "time" not in ds.dims:
                     ds = ds.drop_vars("time")
-                
+
                 # Use valid_time as the time dimension
                 if "valid_time" not in ds.dims:
                     ds = ds.expand_dims("valid_time")
-                
+
                 # Rename to 'time' for consistency
                 ds = ds.rename({"valid_time": "time"})
             elif "time" not in ds.dims:
@@ -557,17 +559,19 @@ class GribProcessor:
         def upload_file_with_retry(local_file: Path) -> tuple[str, bool, str]:
             """
             Upload a single file to GCS with retry logic.
-            
+
             Returns:
                 Tuple of (blob_name, success, error_message)
             """
             relative_path = local_file.relative_to(local_zarr_path)
             blob_name = f"{blob_prefix}/{relative_path}".replace("\\", "/")
-            blob = bucket.blob(blob_name, chunk_size=5 * 1024 * 1024)  # 5MB chunks for resumable upload
-            
+            blob = bucket.blob(
+                blob_name, chunk_size=5 * 1024 * 1024
+            )  # 5MB chunks for resumable upload
+
             max_retries = self.config.upload_max_retries
             timeout = self.config.upload_timeout
-            
+
             for attempt in range(max_retries):
                 try:
                     blob.upload_from_filename(
@@ -580,7 +584,7 @@ class GribProcessor:
                     error_msg = str(e)
                     if attempt < max_retries - 1:
                         # Exponential backoff: 2^attempt seconds
-                        wait_time = 2 ** attempt
+                        wait_time = 2**attempt
                         logger.warning(
                             f"Upload failed for {relative_path} (attempt {attempt + 1}/{max_retries}): {error_msg}. "
                             f"Retrying in {wait_time}s..."
@@ -591,16 +595,20 @@ class GribProcessor:
                             f"Upload failed for {relative_path} after {max_retries} attempts: {error_msg}"
                         )
                         return blob_name, False, error_msg
-            
+
             return blob_name, False, "Max retries exceeded"
 
         # Upload files in parallel
         max_workers = self.config.max_upload_workers
-        logger.info(f"Using {max_workers} parallel workers for upload (timeout: {self.config.upload_timeout}s)")
-        
+        logger.info(
+            f"Using {max_workers} parallel workers for upload (timeout: {self.config.upload_timeout}s)"
+        )
+
         failed_uploads = []
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {executor.submit(upload_file_with_retry, f): f for f in zarr_files}
+            futures = {
+                executor.submit(upload_file_with_retry, f): f for f in zarr_files
+            }
 
             with tqdm(total=len(zarr_files), desc="Uploading to GCS") as pbar:
                 for future in as_completed(futures):
@@ -611,16 +619,14 @@ class GribProcessor:
                         local_file = futures[future]
                         failed_uploads.append((local_file, error_msg))
                         pbar.update(1)
-        
+
         # Report failed uploads
         if failed_uploads:
-            error_summary = "\n".join(
-                [f"  - {f}: {err}" for f, err in failed_uploads]
-            )
+            error_summary = "\n".join([f"  - {f}: {err}" for f, err in failed_uploads])
             raise RuntimeError(
                 f"Failed to upload {len(failed_uploads)}/{len(zarr_files)} files:\n{error_summary}"
             )
-        
+
         # Verify upload if enabled
         if self.config.verify_upload:
             logger.info("Verifying upload...")
@@ -644,23 +650,27 @@ class GribProcessor:
 
         # Get all local files
         local_files = [f for f in local_zarr_path.rglob("*") if f.is_file()]
-        
+
         # Check each file exists in GCS
         missing_files = []
         for local_file in local_files:
             relative_path = local_file.relative_to(local_zarr_path)
-            gcs_file_path = f"{bucket_name}/{blob_prefix}/{relative_path}".replace("\\", "/")
-            
+            gcs_file_path = f"{bucket_name}/{blob_prefix}/{relative_path}".replace(
+                "\\", "/"
+            )
+
             if not fs.exists(gcs_file_path):
                 missing_files.append(str(relative_path))
-        
+
         if missing_files:
             error_summary = "\n".join([f"  - {f}" for f in missing_files])
             raise RuntimeError(
                 f"Upload verification failed: {len(missing_files)}/{len(local_files)} files missing from GCS:\n{error_summary}"
             )
-        
-        logger.info(f"Upload verification successful: all {len(local_files)} files present in GCS")
+
+        logger.info(
+            f"Upload verification successful: all {len(local_files)} files present in GCS"
+        )
 
     def inspect_grib_files(self) -> dict:
         """

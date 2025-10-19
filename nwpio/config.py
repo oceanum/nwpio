@@ -18,7 +18,7 @@ class DownloadConfig(BaseModel):
     )
     cycle: Optional[datetime] = Field(
         default=None,
-        description="Forecast initialization time (cycle). Can be set via CLI --cycle or $CYCLE environment variable."
+        description="Forecast initialization time (cycle). Can be set via CLI --cycle or $CYCLE environment variable.",
     )
     max_lead_time: int = Field(description="Maximum lead time in hours", gt=0)
     source_bucket: str = Field(description="Source GCS bucket containing GRIB files")
