@@ -3,11 +3,12 @@
 # 
 # REQUIRED: Set cycle via environment variable or CLI argument
 #
-# Usage with environment variable:
+# Usage with environment variables:
+#   export CONFIG="config-production.yaml"
 #   export CYCLE="2025-10-15T00:00:00"
-#   nwpio run --config config-production.yaml --max-workers 8
+#   nwpio run --max-workers 8
 #
-# Usage with CLI argument:
+# Usage with CLI arguments:
 #   nwpio run --config config-production.yaml --cycle "2025-10-15T00:00:00" --max-workers 8
 #
 # Usage inline:

@@ -21,11 +21,11 @@ process:
     local_temp_dir: null
     max_grib_workers: 8
     clean_coords: true
-    rename_vars:
-      u10: ugrd10m
-      v10: vgrd10m
-      latitude: lat
-      longitude: lon
+    # rename_vars:
+    #   u10: ugrd10m
+    #   v10: vgrd10m
+    #   latitude: lat
+    #   longitude: lon
     chunks:
       time: -1
       lon: 128

@@ -308,8 +308,8 @@ def process(
 @click.option(
     "--config",
     type=click.Path(exists=True, path_type=Path),
-    required=True,
-    help="Path to YAML configuration file",
+    envvar="CONFIG",
+    help="Path to YAML configuration file. Reads from $CONFIG if not provided.",
 )
 @click.option(
     "--cycle",
@@ -342,6 +342,12 @@ def run(
 ):
     """Run complete workflow from configuration file."""
     try:
+        # Validate config is provided
+        if config is None:
+            raise click.ClickException(
+                "Config file not specified. Provide via --config argument or $CONFIG environment variable."
+            )
+        
         # Load configuration
         workflow_config = WorkflowConfig.from_yaml(config)
         

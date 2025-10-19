@@ -50,6 +50,11 @@ download:
 CYCLE="2025-10-17T00:00:00" nwpio run \
     --config examples/config-ecmwf-wind10m.yaml \
     --max-workers 8
+
+# Or use environment variables for both config and cycle
+export CONFIG="examples/config-ecmwf-wind10m.yaml"
+export CYCLE="2025-10-17T00:00:00"
+nwpio run --max-workers 8
 ```
 
 ### With Custom Lead Time
