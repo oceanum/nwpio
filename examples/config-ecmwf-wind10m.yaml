@@ -1,0 +1,39 @@
+cleanup_grib: false
+
+download:
+  destination_bucket: null
+  local_download_dir: /tmp/nwp-data
+  max_lead_time: 7
+  overwrite: false
+  product: ecmwf-hres
+  resolution: 0p25
+  source_bucket: ecmwf-forecasts
+  validate_before_download: true
+
+process:
+  - filter_by_keys:
+      typeOfLevel: heightAboveGround
+      level: 10
+    grib_path: /tmp/nwp-data/ecmwf/hres/0p25/{cycle:%Y%m%d}/{cycle:%H}/
+    output_path: gs://oceanum-data-dev/forecast/ecmwf_0p25_wind10m_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
+    overwrite: true
+    write_local_first: true
+    local_temp_dir: null
+    max_grib_workers: 8
+    clean_coords: true
+    rename_vars:
+      u10: ugrd10m
+      v10: vgrd10m
+      latitude: lat
+      longitude: lon
+    chunks:
+      time: -1
+      lon: 128
+      lat: 128
+    max_upload_workers: 8
+    upload_timeout: 600
+    upload_max_retries: 3
+    verify_upload: true
+    variables:
+      - u10
+      - v10

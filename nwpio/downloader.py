@@ -15,6 +15,28 @@ from nwpio.utils import (
     parse_gcs_path,
 )
 
+
+def parse_cloud_path(path: str) -> tuple[str, str, str]:
+    """Parse cloud storage path (GCS or S3) into protocol, bucket, and blob.
+    
+    Args:
+        path: Cloud path (gs://bucket/path or s3://bucket/path)
+        
+    Returns:
+        Tuple of (protocol, bucket, blob_path)
+    """
+    if path.startswith("gs://"):
+        bucket, blob = parse_gcs_path(path)
+        return "gs", bucket, blob
+    elif path.startswith("s3://"):
+        path = path.replace("s3://", "")
+        parts = path.split("/", 1)
+        bucket = parts[0]
+        blob = parts[1] if len(parts) > 1 else ""
+        return "s3", bucket, blob
+    else:
+        raise ValueError(f"Unsupported path protocol: {path}")
+
 logger = logging.getLogger(__name__)
 
 
@@ -77,11 +99,26 @@ class GribDownloader:
                 date_str = self.config.cycle.strftime("%Y%m%d")
                 lead_str = f"{next_lead_time:03d}"
                 product_type = "ens" if "ens" in self.config.product else "hres"
-                next_source_path = (
-                    f"gs://{self.config.source_bucket}/ecmwf/{product_type}/"
-                    f"{date_str}/{cycle_str}/{self.config.resolution}/"
-                    f"ecmwf.{product_type}.{cycle_str}z.{self.config.resolution}.f{lead_str}.grib"
-                )
+                
+                # Check if using AWS S3
+                if self.config.source_bucket == "ecmwf-forecasts":
+                    if "ens" in self.config.product:
+                        product_name = "enfo"
+                        product_suffix = "ef"
+                    else:
+                        product_name = "oper"
+                        product_suffix = "fc"
+                    
+                    next_source_path = (
+                        f"s3://{self.config.source_bucket}/{date_str}/{cycle_str}z/ifs/{self.config.resolution}/{product_name}/"
+                        f"{date_str}{cycle_str}0000-{next_lead_time}h-{product_name}-{product_suffix}.grib2"
+                    )
+                else:
+                    next_source_path = (
+                        f"gs://{self.config.source_bucket}/ecmwf/{product_type}/"
+                        f"{date_str}/{cycle_str}/{self.config.resolution}/"
+                        f"ecmwf.{product_type}.{cycle_str}z.{self.config.resolution}.f{lead_str}.grib"
+                    )
 
             from nwpio.sources import GribFileSpec
 
@@ -94,15 +131,23 @@ class GribDownloader:
             validation_specs.append(next_spec)
 
         # Check which files exist
-        fs = fsspec.filesystem("gs")
+        # Determine filesystem type from first file
+        first_path = file_specs[0].source_path if file_specs else ""
+        if first_path.startswith("s3://"):
+            fs = fsspec.filesystem("s3", anon=True)  # Anonymous access for public buckets
+            path_prefix = "s3://"
+        else:
+            fs = fsspec.filesystem("gs")
+            path_prefix = "gs://"
+        
         missing_files = []
         available_files = []
 
         for spec in validation_specs:
-            bucket_name, blob_path = parse_gcs_path(spec.source_path)
-            gcs_path = f"{bucket_name}/{blob_path}"
+            protocol, bucket_name, blob_path = parse_cloud_path(spec.source_path)
+            cloud_path = f"{bucket_name}/{blob_path}"
 
-            if not fs.exists(gcs_path):
+            if not fs.exists(cloud_path):
                 missing_files.append(spec)
             else:
                 available_files.append(spec)
@@ -243,8 +288,8 @@ class GribDownloader:
         """
         # Check if downloading to local or GCS
         if spec.destination_path.startswith("gs://"):
-            # GCS to GCS copy
-            source_bucket, source_blob = parse_gcs_path(spec.source_path)
+            # Cloud to GCS copy
+            source_protocol, source_bucket, source_blob = parse_cloud_path(spec.source_path)
             dest_bucket, dest_blob = parse_gcs_path(spec.destination_path)
 
             # Check if destination already exists
@@ -253,21 +298,39 @@ class GribDownloader:
                     logger.debug(f"Skipping existing file: {spec.destination_path}")
                     return True, spec.destination_path
 
-            # Check if source exists
-            if not gcs_blob_exists(source_bucket, source_blob, self.client):
-                logger.warning(f"Source file not found: {spec.source_path}")
-                return False, spec.destination_path
+            if source_protocol == "gs":
+                # GCS to GCS copy
+                if not gcs_blob_exists(source_bucket, source_blob, self.client):
+                    logger.warning(f"Source file not found: {spec.source_path}")
+                    return False, spec.destination_path
 
-            # Copy the file
-            success = copy_gcs_blob(
-                source_bucket=source_bucket,
-                source_blob=source_blob,
-                dest_bucket=dest_bucket,
-                dest_blob=dest_blob,
-                client=self.client,
-            )
+                success = copy_gcs_blob(
+                    source_bucket=source_bucket,
+                    source_blob=source_blob,
+                    dest_bucket=dest_bucket,
+                    dest_blob=dest_blob,
+                    client=self.client,
+                )
+            else:
+                # S3 to GCS copy
+                import fsspec
+                try:
+                    s3_fs = fsspec.filesystem("s3", anon=True)
+                    s3_path = f"{source_bucket}/{source_blob}"
+                    
+                    with s3_fs.open(s3_path, "rb") as src:
+                        data = src.read()
+                    
+                    # Upload to GCS
+                    dest_bucket_obj = self.client.bucket(dest_bucket)
+                    blob = dest_bucket_obj.blob(dest_blob)
+                    blob.upload_from_string(data)
+                    success = True
+                except Exception as e:
+                    logger.error(f"Failed to copy {spec.source_path} to GCS: {e}")
+                    success = False
         else:
-            # GCS to local download
+            # Cloud to local download
             from pathlib import Path
             import fsspec
 
@@ -281,13 +344,18 @@ class GribDownloader:
             # Create parent directory
             local_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Download from GCS
+            # Download from cloud storage
             try:
-                fs = fsspec.filesystem("gs")
-                source_bucket, source_blob = parse_gcs_path(spec.source_path)
-                gcs_path = f"{source_bucket}/{source_blob}"
+                source_protocol, source_bucket, source_blob = parse_cloud_path(spec.source_path)
+                
+                if source_protocol == "gs":
+                    fs = fsspec.filesystem("gs")
+                else:  # s3
+                    fs = fsspec.filesystem("s3", anon=True)
+                
+                cloud_path = f"{source_bucket}/{source_blob}"
 
-                with fs.open(gcs_path, "rb") as src:
+                with fs.open(cloud_path, "rb") as src:
                     with open(local_path, "wb") as dst:
                         dst.write(src.read())
 

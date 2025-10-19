@@ -297,17 +297,24 @@ class GribProcessor:
                     backend_kwargs=backend_kwargs,
                 )
 
-            # Ensure time dimension exists
-            if "time" not in ds.dims:
-                if "valid_time" in ds.coords and "time" not in ds.coords:
-                    # Rename valid_time to time if time doesn't exist
-                    ds = ds.rename({"valid_time": "time"})
-                elif "time" in ds.coords:
-                    # Expand time coordinate to dimension
+            # Ensure time dimension exists and uses valid_time (forecast valid time)
+            # GRIB files have both 'time' (reference/cycle time) and 'valid_time' (forecast time)
+            # We want valid_time as our time dimension
+            if "valid_time" in ds.coords:
+                # Drop the reference time coordinate first if it exists as a non-dimension coord
+                if "time" in ds.coords and "time" not in ds.dims:
+                    ds = ds.drop_vars("time")
+                
+                # Use valid_time as the time dimension
+                if "valid_time" not in ds.dims:
+                    ds = ds.expand_dims("valid_time")
+                
+                # Rename to 'time' for consistency
+                ds = ds.rename({"valid_time": "time"})
+            elif "time" not in ds.dims:
+                # Fallback: if only 'time' exists, expand it as dimension
+                if "time" in ds.coords:
                     ds = ds.expand_dims("time")
-                elif "valid_time" in ds.coords:
-                    # Use valid_time as time dimension
-                    ds = ds.expand_dims("valid_time").rename({"valid_time": "time"})
 
             return ds
 

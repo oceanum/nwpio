@@ -19,7 +19,7 @@ download:
   # cycle: Set via --cycle or $CYCLE (required)
   destination_bucket: null  # Download to local disk (faster processing)
   local_download_dir: /tmp/nwp-data
-  max_lead_time: 240  # 10 days (0-120h hourly, 123-240h 3-hourly)
+  max_lead_time: 6  # 10 days (0-120h hourly, 123-240h 3-hourly)
   overwrite: false
   product: gfs
   resolution: 0p25
