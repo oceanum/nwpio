@@ -96,14 +96,14 @@ class ProcessConfig(BaseModel):
         description="Chunking specification for Zarr (e.g., {'time': 1, 'latitude': 100})",
     )
     overwrite: bool = Field(
-        default=False, description="Overwrite existing Zarr archive"
+        default=True, description="Overwrite existing Zarr archive"
     )
     timestamp_format: str = Field(
         default="%Y%m%d_%H%M%S",
         description="Format string for {timestamp} placeholder (strftime format)",
     )
     write_local_first: bool = Field(
-        default=False,
+        default=True,
         description="Write to local temp directory first, then upload to GCS (helps with network issues)",
     )
     local_temp_dir: Optional[str] = Field(
