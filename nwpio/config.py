@@ -146,7 +146,7 @@ class WorkflowConfig(BaseModel):
     download: DownloadConfig = Field(description="Download configuration")
     process: List[ProcessConfig] | None = Field(
         default=None,
-        description="List of process configurations to run on downloaded GRIB files. Optional - can download without processing."
+        description="List of process configurations to run on downloaded GRIB files. Optional - can download without processing.",
     )
     cleanup_grib: bool = Field(
         default=False, description="Delete GRIB files after all processing is complete"
