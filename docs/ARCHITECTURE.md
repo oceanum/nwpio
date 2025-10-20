@@ -4,6 +4,43 @@
 
 The NWP Download library is designed with a modular architecture to handle downloading and processing of numerical weather prediction data from cloud archives.
 
+## Project Structure
+
+```
+nwpio/
+├── nwpio/                     # Main library package
+│   ├── __init__.py           # Package exports
+│   ├── config.py             # Pydantic configuration models
+│   ├── sources.py            # Data source definitions (GFS/ECMWF)
+│   ├── downloader.py         # Parallel GRIB file downloader
+│   ├── processor.py          # GRIB to Zarr converter
+│   ├── utils.py              # GCS utilities and helpers
+│   └── cli.py                # Click-based CLI interface
+│
+├── examples/                  # Usage examples
+│   ├── config-ecmwf-wind10m.yaml
+│   ├── config-production.yaml
+│   └── example_usage.py
+│
+├── docs/                      # Documentation
+│   ├── API.md                # Complete API reference
+│   ├── ARCHITECTURE.md       # System design and architecture
+│   ├── DEPLOYMENT.md         # Deployment and operations guide
+│   ├── getting-started/      # Getting started guides
+│   ├── guide/                # User guides
+│   └── api/                  # API documentation
+│
+├── tests/                     # Test suite
+│   ├── __init__.py
+│   └── test_config.py
+│
+├── pyproject.toml            # Modern Python packaging
+├── requirements.txt          # Production dependencies
+├── Dockerfile                # Container image definition
+├── README.md                 # Main documentation
+└── LICENSE                   # MIT License
+```
+
 ## Components
 
 ### 1. Configuration (`config.py`)

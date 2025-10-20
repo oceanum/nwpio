@@ -4,17 +4,33 @@ A Python library for downloading and processing Numerical Weather Prediction (NW
 
 ## Features
 
-- **Download GRIB files** from cloud archives (GCS) for NWP models such as GFS and ECMWF
-- **File availability validation** - Ensures all files are complete before downloading (see [FILE_VALIDATION.md](FILE_VALIDATION.md))
-- **Flexible cycle configuration** - Set via CLI (`--cycle`), environment (`$CYCLE`), or config file (see [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md))
-- **Multi-process workflow** - Download once, process multiple variable sets efficiently
-- **Parallel operations** - Fast downloads (8 workers) and uploads (16 workers)
-- **Flexible configuration** for product type, resolution, forecast cycles, and lead times
-- **Extract variables** from GRIB files using xarray and cfgrib with smart filtering
-- **Convert to Zarr** format for efficient storage and access
+### Data Download
+- **Multiple NWP models** - GFS, ECMWF HRES/ENS support
+- **Flexible resolutions** - 0.1°, 0.25°, 0.5°, 1.0° depending on product
+- **Configurable cycles** - 00z, 06z, 12z, 18z with variable lead times (up to 384h)
+- **Parallel downloads** - Configurable workers for fast transfers
+- **GCS-to-GCS copying** - No local storage needed for large files
+- **File validation** - Ensures all files are complete before downloading
+- **Smart skipping** - Avoid re-downloading existing files
+
+### GRIB Processing
+- **Variable extraction** - Select specific variables from GRIB files
+- **Time concatenation** - Combine multiple files along time dimension
+- **Zarr conversion** - Efficient chunked storage format
+- **Configurable chunking** - Optimize for your access patterns
+- **Compression support** - Multiple algorithms (zstd, lz4)
+- **GRIB key filtering** - Filter by level, type, etc.
+- **Parallel GRIB loading** - Fast processing with multiple workers
+
+### Production Ready
+- **Type-safe configuration** - Pydantic models with validation
+- **Flexible cycle configuration** - CLI (`--cycle`), environment (`$CYCLE`), or config file
+- **Multi-process workflow** - Download once, process multiple variable sets
 - **Cycle-based formatting** - Dynamic paths with `{cycle:%Y%m%d}` placeholders
-- **CLI interface** for easy integration with deployment workflows
+- **Comprehensive logging** - Track progress and debug issues
+- **Error handling** - Robust recovery and retry logic
 - **Automatic cleanup** - Optional GRIB file deletion after processing
+- **Docker support** - Container-ready for cloud deployment
 
 ## Installation
 
@@ -106,7 +122,7 @@ process:
   - filter_by_keys:
       typeOfLevel: heightAboveGround
       level: 10
-    output_path: gs://your-bucket/wind_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
+    zarr_path: gs://your-bucket/wind_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
     variables: [u10, v10]
     write_local_first: true
     max_upload_workers: 16
@@ -132,7 +148,7 @@ process:
   - filter_by_keys:
       typeOfLevel: heightAboveGround
       level: 10
-    output_path: gs://your-bucket/wind10m_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
+    zarr_path: gs://your-bucket/wind10m_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
     variables: [u10, v10]
     max_upload_workers: 16
     
@@ -140,7 +156,7 @@ process:
   - filter_by_keys:
       typeOfLevel: heightAboveGround
       level: 2
-    output_path: gs://your-bucket/surface_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
+    zarr_path: gs://your-bucket/surface_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
     variables: [t2m, d2m]
     max_upload_workers: 16
 ```

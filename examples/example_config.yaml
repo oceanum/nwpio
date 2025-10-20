@@ -53,7 +53,7 @@ process:
   #   - gs://bucket/gfs_{cycle:%Y%m%d%H}.zarr            -> gfs_2024010100.zarr
   # 
   # Legacy placeholders also supported: {date}, {time}, {timestamp}, {cycle}
-  output_path: gs://your-bucket-name/output/forecast_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
+  zarr_path: gs://your-bucket-name/output/forecast_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
   
   # Optional: Custom timestamp format (default: %Y%m%d_%H%M%S)
   # timestamp_format: "%Y%m%d_%H%M%S"

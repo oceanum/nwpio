@@ -40,7 +40,7 @@ def example_process():
     config = ProcessConfig(
         grib_path="gs://your-bucket-name/nwp-data/gfs/0p25/20240101/00/",
         variables=["t2m", "u10", "v10", "tp"],
-        output_path="gs://your-bucket-name/output/forecast.zarr",
+        zarr_path="gs://your-bucket-name/output/forecast.zarr",
         chunks={"time": 1, "latitude": 100, "longitude": 100},
         compression="default",
         overwrite=False,
@@ -54,8 +54,8 @@ def example_process():
     print(f"Available variables: {metadata['variables']}")
 
     # Process to Zarr
-    output_path = processor.process()
-    print(f"Created Zarr archive: {output_path}")
+    zarr_path = processor.process()
+    print(f"Created Zarr archive: {zarr_path}")
 
 
 def example_ecmwf():
@@ -81,7 +81,7 @@ def example_with_filters():
     config = ProcessConfig(
         grib_path="gs://your-bucket-name/nwp-data/",
         variables=["t", "u", "v"],  # Temperature and wind at pressure levels
-        output_path="gs://your-bucket-name/output/pressure_levels.zarr",
+        zarr_path="gs://your-bucket-name/output/pressure_levels.zarr",
         filter_by_keys={
             "typeOfLevel": "isobaricInhPa",
             "level": 500,  # 500 hPa level
@@ -90,8 +90,8 @@ def example_with_filters():
     )
 
     processor = GribProcessor(config)
-    output_path = processor.process()
-    print(f"Created pressure level Zarr: {output_path}")
+    zarr_path = processor.process()
+    print(f"Created pressure level Zarr: {zarr_path}")
 
 
 if __name__ == "__main__":
