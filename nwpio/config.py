@@ -95,9 +95,7 @@ class ProcessConfig(BaseModel):
         default=None,
         description="Chunking specification for Zarr (e.g., {'time': 1, 'latitude': 100})",
     )
-    overwrite: bool = Field(
-        default=True, description="Overwrite existing Zarr archive"
-    )
+    overwrite: bool = Field(default=True, description="Overwrite existing Zarr archive")
     timestamp_format: str = Field(
         default="%Y%m%d_%H%M%S",
         description="Format string for {timestamp} placeholder (strftime format)",
