@@ -1,4 +1,4 @@
-# Dockerfile for NWP Download
+# Dockerfile for nwpio
 
 FROM python:3.11-slim
 
@@ -16,7 +16,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY nwp_download/ ./nwp_download/
+COPY nwpio/ ./nwpio/
 COPY pyproject.toml .
 COPY README.md .
 
@@ -28,5 +28,5 @@ RUN useradd -m -u 1000 nwpuser && chown -R nwpuser:nwpuser /app
 USER nwpuser
 
 # Set entrypoint
-ENTRYPOINT ["nwp-download"]
+ENTRYPOINT ["nwpio"]
 CMD ["--help"]
