@@ -386,7 +386,11 @@ def run(
             click.echo(f"Downloaded {len(downloaded_files)} files\n")
 
         # Process step(s) - can run multiple processes on the same downloaded files
-        if not skip_process:
+        if skip_process:
+            click.echo("Skipping process step (--skip-process flag)\n")
+        elif not workflow_config.process:
+            click.echo("No process configuration found - download only\n")
+        elif workflow_config.process:
             # Determine GRIB path from downloaded files or config
             if downloaded_files:
                 # Use the directory of downloaded files
