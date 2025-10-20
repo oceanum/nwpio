@@ -84,7 +84,7 @@ class ProcessConfig(BaseModel):
     variables: List[str] = Field(
         description="List of variables to extract from GRIB files"
     )
-    output_path: str = Field(
+    zarr_path: str = Field(
         description="Output path for Zarr archive (local or GCS). Supports {timestamp}, {date}, {time}, {cycle} placeholders"
     )
     filter_by_keys: Optional[dict] = Field(
@@ -149,6 +149,44 @@ class WorkflowConfig(BaseModel):
     cleanup_grib: bool = Field(
         default=False, description="Delete GRIB files after all processing is complete"
     )
+
+    def get_default_grib_path(self) -> str:
+        """
+        Derive the default GRIB path from download configuration.
+
+        Returns the path where downloaded GRIB files will be stored based on
+        the download configuration (product, resolution, cycle, etc.).
+
+        Returns:
+            Default GRIB path with cycle placeholders
+        """
+        product = self.download.product
+        resolution = self.download.resolution
+
+        # Determine product type for path
+        if "ens" in product:
+            product_type = "ens"
+        else:
+            product_type = "hres" if "ecmwf" in product else product
+
+        # Use destination_bucket if set, otherwise local_download_dir
+        if self.download.destination_bucket:
+            base_path = f"gs://{self.download.destination_bucket}"
+            if self.download.destination_prefix:
+                base_path = (
+                    f"{base_path}/{self.download.destination_prefix.rstrip('/')}"
+                )
+        else:
+            base_path = self.download.local_download_dir
+
+        # Construct path based on product
+        if "ecmwf" in product:
+            return f"{base_path}/ecmwf/{product_type}/{resolution}/{{cycle:%Y%m%d}}/{{cycle:%H}}/"
+        elif "gfs" in product:
+            return f"{base_path}/gfs/{resolution}/{{cycle:%Y%m%d}}/{{cycle:%H}}/"
+        else:
+            # Generic fallback
+            return f"{base_path}/{product}/{resolution}/{{cycle:%Y%m%d}}/{{cycle:%H}}/"
 
     @classmethod
     def from_yaml(cls, path: Path) -> "WorkflowConfig":

@@ -11,21 +11,19 @@ download:
   validate_before_download: true
 
 process:
-  # - filter_by_keys: {typeOfLevel: heightAboveGround, level: 10}
-  #   grib_path: /tmp/nwp-data/ecmwf/hres/0p25/{cycle:%Y%m%d}/{cycle:%H}/
-  #   output_path: gs://oceanum-data-dev/forecast/ecmwf_0p25_wind10m_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
-  #   local_temp_dir: null
-  #   max_grib_workers: 8
-  #   clean_coords: true
-  #   variables: [u10, v10]
-  #   chunks: {time: -1, longitude: 128, latitude: 128}
-  #   max_upload_workers: 8
-  #   upload_timeout: 600
-  #   upload_max_retries: 3
-  #   verify_upload: true
+  - filter_by_keys: {typeOfLevel: heightAboveGround, level: 10}
+    # grib_path: /tmp/nwp-data/ecmwf/hres/0p25/{cycle:%Y%m%d}/{cycle:%H}/
+    zarr_path: gs://oceanum-data-dev/forecast/ecmwf_0p25_wind10m_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
+    max_grib_workers: 8
+    clean_coords: true
+    variables: [u10, v10]
+    chunks: {time: -1, longitude: 128, latitude: 128}
+    max_upload_workers: 8
+    upload_timeout: 600
+    upload_max_retries: 3
+    verify_upload: true
   # - filter_by_keys: {typeOfLevel: meanSea}
-  #   grib_path: /tmp/nwp-data/ecmwf/hres/0p25/{cycle:%Y%m%d}/{cycle:%H}/
-  #   output_path: gs://oceanum-data-dev/forecast/msl_0p25_wind10m_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
+  #   zarr_path: gs://oceanum-data-dev/forecast/msl_0p25_wind10m_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
   #   max_grib_workers: 8
   #   clean_coords: true
   #   variables: [msl]
@@ -35,8 +33,7 @@ process:
   #   upload_max_retries: 3
   #   verify_upload: true
   # - filter_by_keys: {typeOfLevel: surface}
-  #   grib_path: /tmp/nwp-data/ecmwf/hres/0p25/{cycle:%Y%m%d}/{cycle:%H}/
-  #   output_path: gs://oceanum-data-dev/forecast/tp_0p25_wind10m_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
+  #   zarr_path: gs://oceanum-data-dev/forecast/tp_0p25_wind10m_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
   #   max_grib_workers: 8
   #   clean_coords: true
   #   variables: [tp]
@@ -45,14 +42,13 @@ process:
   #   upload_timeout: 600
   #   upload_max_retries: 3
   #   verify_upload: true
-  - filter_by_keys: {typeOfLevel: surface}
-    grib_path: /tmp/nwp-data/ecmwf/hres/0p25/{cycle:%Y%m%d}/{cycle:%H}/
-    output_path: gs://oceanum-data-dev/forecast/tprate_0p25_wind10m_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
-    max_grib_workers: 8
-    clean_coords: true
-    variables: [tprate]
-    chunks: {time: -1, longitude: 128, latitude: 128}
-    max_upload_workers: 8
-    upload_timeout: 600
-    upload_max_retries: 3
-    verify_upload: true
+  # - filter_by_keys: {typeOfLevel: surface}
+  #   zarr_path: gs://oceanum-data-dev/forecast/tprate_0p25_wind10m_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
+  #   max_grib_workers: 8
+  #   clean_coords: true
+  #   variables: [tprate]
+  #   chunks: {time: -1, longitude: 128, latitude: 128}
+  #   max_upload_workers: 8
+  #   upload_timeout: 600
+  #   upload_max_retries: 3
+  #   verify_upload: true

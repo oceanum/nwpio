@@ -268,7 +268,7 @@ def process(
         config = ProcessConfig(
             grib_path=grib_path,
             variables=variable_list,
-            output_path=output,
+            zarr_path=output,
             filter_by_keys=filter_dict,
             chunks=chunks_dict,
             overwrite=overwrite,
@@ -296,8 +296,8 @@ def process(
             click.echo(f"  Sample file: {metadata.get('sample_file', 'N/A')}")
         else:
             # Process GRIB files
-            output_path = processor.process()
-            click.echo(f"\nSuccessfully created Zarr archive: {output_path}")
+            zarr_path = processor.process()
+            click.echo(f"\nSuccessfully created Zarr archive: {zarr_path}")
 
     except Exception as e:
         logger.error(f"Processing failed: {e}")
@@ -407,23 +407,36 @@ def run(
             else:
                 grib_dir = None
 
-            output_paths = []
+            zarr_paths = []
             for idx, process_config in enumerate(workflow_config.process, 1):
                 click.echo(f"=== Process Step {idx}/{len(workflow_config.process)} ===")
 
-                # Override grib_path if we downloaded files
-                if grib_dir:
+                # Set grib_path if not provided
+                if not process_config.grib_path:
+                    if grib_dir:
+                        # Use directory from downloaded files
+                        process_config.grib_path = grib_dir
+                    else:
+                        # Derive from download config
+                        process_config.grib_path = (
+                            workflow_config.get_default_grib_path()
+                        )
+                        click.echo(
+                            f"Using default grib_path: {process_config.grib_path}"
+                        )
+                elif grib_dir:
+                    # Override explicit grib_path if we downloaded files
                     process_config.grib_path = grib_dir
 
                 # Pass cycle from download config for path formatting
                 processor = GribProcessor(
                     process_config, cycle=workflow_config.download.cycle
                 )
-                output_path = processor.process()
-                output_paths.append(output_path)
-                click.echo(f"Created Zarr archive: {output_path}\n")
+                zarr_path = processor.process()
+                zarr_paths.append(zarr_path)
+                click.echo(f"Created Zarr archive: {zarr_path}\n")
 
-            click.echo(f"Created {len(output_paths)} Zarr archives")
+            click.echo(f"Created {len(zarr_paths)} Zarr archives")
 
         # Cleanup step
         if workflow_config.cleanup_grib and downloaded_files:
@@ -482,7 +495,7 @@ def init_config(product: str, resolution: str, output: Path):
         process=ProcessConfig(
             grib_path="gs://your-bucket-name/nwp-data/",
             variables=["t2m", "u10", "v10", "tp"],
-            output_path="gs://your-bucket-name/output.zarr",
+            zarr_path="gs://your-bucket-name/output.zarr",
         ),
         cleanup_grib=False,
     )

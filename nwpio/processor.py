@@ -109,13 +109,13 @@ class GribProcessor:
             logger.info(f"Applying default chunking: {default_chunks}")
             combined_ds = combined_ds.chunk(default_chunks)
 
-        # Format output path with timestamps
-        output_path = self._format_output_path(combined_ds)
-        logger.info(f"Writing to Zarr: {output_path}")
-        self._write_zarr(combined_ds, output_path)
+        # Format zarr path with timestamps
+        zarr_path = self._format_zarr_path(combined_ds)
+        logger.info(f"Writing to Zarr: {zarr_path}")
+        self._write_zarr(combined_ds, zarr_path)
 
         logger.info("Processing complete")
-        return output_path
+        return zarr_path
 
     def _clean_dataset(self, dataset: xr.Dataset) -> xr.Dataset:
         """
@@ -372,9 +372,9 @@ class GribProcessor:
         logger.debug(f"Formatted grib_path: {grib_path}")
         return grib_path
 
-    def _format_output_path(self, dataset: xr.Dataset) -> str:
+    def _format_zarr_path(self, dataset: xr.Dataset) -> str:
         """
-        Format output path with cycle datetime placeholders.
+        Format zarr path with cycle datetime placeholders.
 
         Supports Python datetime formatting syntax:
         - {cycle:%Y%m%d} -> 20240101
@@ -390,13 +390,13 @@ class GribProcessor:
             dataset: xarray Dataset (used to extract time information)
 
         Returns:
-            Formatted output path
+            Formatted zarr path
         """
-        output_path = self.config.output_path
+        zarr_path = self.config.zarr_path
 
         # Check if there are any placeholders
-        if "{" not in output_path:
-            return output_path
+        if "{" not in zarr_path:
+            return zarr_path
 
         # Extract first time from dataset for timestamp
         if "time" in dataset.coords:
@@ -410,11 +410,11 @@ class GribProcessor:
             # Handle {cycle:...} format strings
             # Find all {cycle:format} patterns and replace them
             cycle_pattern = r"\{cycle:([^}]+)\}"
-            matches = re.finditer(cycle_pattern, output_path)
+            matches = re.finditer(cycle_pattern, zarr_path)
             for match in matches:
                 format_str = match.group(1)
                 formatted_value = dt.strftime(format_str)
-                output_path = output_path.replace(match.group(0), formatted_value)
+                zarr_path = zarr_path.replace(match.group(0), formatted_value)
 
             # Handle legacy placeholders for backward compatibility
             legacy_replacements = {
@@ -425,36 +425,36 @@ class GribProcessor:
             }
 
             for placeholder, value in legacy_replacements.items():
-                output_path = output_path.replace(placeholder, value)
+                zarr_path = zarr_path.replace(placeholder, value)
 
-        return output_path
+        return zarr_path
 
-    def _write_zarr(self, dataset: xr.Dataset, output_path: str) -> None:
+    def _write_zarr(self, dataset: xr.Dataset, zarr_path: str) -> None:
         """
         Write dataset to Zarr format.
 
         Args:
             dataset: xarray Dataset to write
-            output_path: Output path for Zarr archive
+            zarr_path: Output path for Zarr archive
         """
         # Write mode
         mode = "w" if self.config.overwrite else "w-"
 
         # Determine if we need to write locally first then upload
-        if is_gcs_path(output_path) and self.config.write_local_first:
-            self._write_local_then_upload(dataset, output_path, mode)
-        elif is_gcs_path(output_path):
+        if is_gcs_path(zarr_path) and self.config.write_local_first:
+            self._write_local_then_upload(dataset, zarr_path, mode)
+        elif is_gcs_path(zarr_path):
             # Write directly to GCS
             logger.info("Writing directly to GCS...")
             dataset.to_zarr(
-                output_path,
+                zarr_path,
                 mode=mode,
                 consolidated=True,
             )
         else:
             # Write to local filesystem
-            logger.info(f"Writing to local filesystem: {output_path}")
-            local_path = Path(output_path)
+            logger.info(f"Writing to local filesystem: {zarr_path}")
+            local_path = Path(zarr_path)
             local_path.parent.mkdir(parents=True, exist_ok=True)
             dataset.to_zarr(
                 local_path,
