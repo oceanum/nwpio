@@ -138,10 +138,8 @@ class GribDownloader:
             fs = fsspec.filesystem(
                 "s3", anon=True
             )  # Anonymous access for public buckets
-            path_prefix = "s3://"
         else:
             fs = fsspec.filesystem("gs")
-            path_prefix = "gs://"
 
         missing_files = []
         available_files = []
