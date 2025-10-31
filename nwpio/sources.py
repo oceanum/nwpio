@@ -159,9 +159,20 @@ class GFSSource(DataSource):
 class ECMWFSource(DataSource):
     """ECMWF data source configuration."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, source_type=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.is_ensemble = self.product == "ecmwf-ens"
+        
+        # Determine source type
+        if source_type:
+            self.source_type = source_type
+        elif self.source_bucket == "ecmwf-forecasts":
+            self.source_type = "aws"
+        elif self.source_bucket == "ecmwf-open-data":
+            self.source_type = "gcs"
+        else:
+            # Default to GCS for backward compatibility
+            self.source_type = "gcs"
 
     def get_file_list(self) -> List[GribFileSpec]:
         """Discover and list ECMWF GRIB files available up to max_lead_time."""
@@ -170,13 +181,13 @@ class ECMWFSource(DataSource):
         cycle_str = f"{cycle_hour:02d}"
         product_type = "ens" if self.is_ensemble else "hres"
 
-        # Check if source_bucket indicates AWS S3 (ecmwf-forecasts)
-        if self.source_bucket == "ecmwf-forecasts":
+        # Route to appropriate source based on source_type
+        if self.source_type == "aws":
             # Discover files from AWS S3
             return self._discover_s3_files(date_str, cycle_str, product_type)
         else:
-            # Use GCS pattern (for mirrored data) - fallback to old behavior
-            return self._generate_gcs_files(date_str, cycle_str, product_type)
+            # Use GCS pattern (official ecmwf-open-data bucket)
+            return self._discover_gcs_official_files(date_str, cycle_str, product_type)
 
     def _discover_s3_files(
         self, date_str: str, cycle_str: str, product_type: str
@@ -295,18 +306,99 @@ class ECMWFSource(DataSource):
 
         return files
 
-    def _generate_gcs_files(
+    def _discover_gcs_official_files(
         self, date_str: str, cycle_str: str, product_type: str
     ) -> List[GribFileSpec]:
-        """Generate GCS file list for mirrored data."""
+        """Discover available files from official GCS bucket (gs://ecmwf-open-data)."""
+        import fsspec
+        import re
+
+        if self.is_ensemble:
+            product_name = "enfo"
+            product_suffix = "ef"
+        else:
+            product_name = "oper"
+            product_suffix = "fc"
+
+        # List files in the GCS directory
+        # Pattern: gs://ecmwf-open-data/YYYYMMDD/HHz/ifs/0p25/oper/
+        gcs_prefix = f"{self.source_bucket}/{date_str}/{cycle_str}z/ifs/{self.resolution}/{product_name}/"
+
+        try:
+            fs = fsspec.filesystem("gs")
+            all_files = fs.ls(gcs_prefix)
+        except Exception as e:
+            # If listing fails, fall back to generating expected files
+            import logging
+
+            logging.warning(f"Failed to list GCS files, falling back to generation: {e}")
+            return self._generate_gcs_official_files(
+                date_str, cycle_str, product_type, product_name, product_suffix
+            )
+
+        # Parse lead times from filenames
+        # Pattern: YYYYMMDDHHmmss-Lh-product-suffix.grib2
+        pattern = re.compile(
+            rf"{date_str}{cycle_str}0000-(\d+)h-{product_name}-{product_suffix}\.grib2$"
+        )
+
+        files = []
+        for file_path in all_files:
+            filename = file_path.split("/")[-1]
+            match = pattern.match(filename)
+            if match:
+                lead_time = int(match.group(1))
+
+                # Only include files up to max_lead_time
+                if lead_time <= self.max_lead_time:
+                    lead_str = f"{lead_time:03d}"
+
+                    source_path = f"gs://{file_path}"
+
+                    # Destination path
+                    if self.destination_bucket:
+                        dest_path = (
+                            f"gs://{self.destination_bucket}/{self.destination_prefix}"
+                            f"ecmwf/{product_type}/{self.resolution}/{date_str}/{cycle_str}/"
+                            f"ecmwf.{product_type}.{cycle_str}z.{self.resolution}.f{lead_str}.grib"
+                        )
+                    else:
+                        dest_path = (
+                            f"{self.local_download_dir}/ecmwf/{product_type}/{self.resolution}/"
+                            f"{date_str}/{cycle_str}/"
+                            f"ecmwf.{product_type}.{cycle_str}z.{self.resolution}.f{lead_str}.grib"
+                        )
+
+                    files.append(
+                        GribFileSpec(
+                            source_path=source_path,
+                            destination_path=dest_path,
+                            lead_time=lead_time,
+                            forecast_time=self.cycle + timedelta(hours=lead_time),
+                        )
+                    )
+
+        # Sort by lead time
+        files.sort(key=lambda x: x.lead_time)
+        return files
+
+    def _generate_gcs_official_files(
+        self,
+        date_str: str,
+        cycle_str: str,
+        product_type: str,
+        product_name: str,
+        product_suffix: str,
+    ) -> List[GribFileSpec]:
+        """Generate GCS official file list using expected lead times (fallback)."""
         files = []
         for lead_time in self._generate_lead_times():
             lead_str = f"{lead_time:03d}"
 
+            # Pattern: gs://ecmwf-open-data/YYYYMMDD/HHz/ifs/0p25/oper/YYYYMMDDHHmmss-Lh-oper-fc.grib2
             source_path = (
-                f"gs://{self.source_bucket}/ecmwf/{product_type}/"
-                f"{date_str}/{cycle_str}/{self.resolution}/"
-                f"ecmwf.{product_type}.{cycle_str}z.{self.resolution}.f{lead_str}.grib"
+                f"gs://{self.source_bucket}/{date_str}/{cycle_str}z/ifs/{self.resolution}/{product_name}/"
+                f"{date_str}{cycle_str}0000-{lead_time}h-{product_name}-{product_suffix}.grib2"
             )
 
             if self.destination_bucket:
@@ -372,11 +464,14 @@ class ECMWFSource(DataSource):
     def get_next_lead_time(self) -> int:
         """Get the next lead time after max_lead_time for validation.
 
-        For AWS S3 sources, we discover files dynamically so we can't predict
+        For sources where we discover files dynamically, we can't predict
         the next lead time. Return None to skip validation file check.
         """
-        if self.source_bucket == "ecmwf-forecasts":
-            # For S3, we discover files dynamically - no validation file needed
+        if self.source_type == "aws":
+            # For AWS S3, we discover files dynamically - no validation file needed
+            return None
+        elif self.source_type == "gcs":
+            # For GCS official bucket, we also discover files dynamically
             return None
 
         # For GCS mirrors, use the old logic
@@ -411,6 +506,7 @@ def create_data_source(
     destination_bucket: str,
     destination_prefix: str = "",
     local_download_dir: str = None,
+    source_type: str = None,
 ) -> DataSource:
     """Factory function to create appropriate data source."""
     if product == "gfs":
@@ -434,6 +530,7 @@ def create_data_source(
             destination_bucket=destination_bucket,
             destination_prefix=destination_prefix,
             local_download_dir=local_download_dir,
+            source_type=source_type,
         )
     else:
         raise ValueError(f"Unknown product: {product}")

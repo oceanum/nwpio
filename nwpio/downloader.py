@@ -64,6 +64,7 @@ class GribDownloader:
             destination_bucket=config.destination_bucket,
             destination_prefix=config.destination_prefix or "",
             local_download_dir=config.local_download_dir,
+            source_type=config.source_type,
         )
 
     def validate_availability(self) -> None:
@@ -100,25 +101,35 @@ class GribDownloader:
                 date_str = self.config.cycle.strftime("%Y%m%d")
                 lead_str = f"{next_lead_time:03d}"
                 product_type = "ens" if "ens" in self.config.product else "hres"
-
-                # Check if using AWS S3
-                if self.config.source_bucket == "ecmwf-forecasts":
-                    if "ens" in self.config.product:
-                        product_name = "enfo"
-                        product_suffix = "ef"
+                
+                # Determine source type
+                source_type = self.config.source_type
+                if not source_type:
+                    # Infer from bucket name
+                    if self.config.source_bucket == "ecmwf-forecasts":
+                        source_type = "aws"
+                    elif self.config.source_bucket == "ecmwf-open-data":
+                        source_type = "gcs"
                     else:
-                        product_name = "oper"
-                        product_suffix = "fc"
+                        source_type = "gcs"  # Default
 
+                if "ens" in self.config.product:
+                    product_name = "enfo"
+                    product_suffix = "ef"
+                else:
+                    product_name = "oper"
+                    product_suffix = "fc"
+
+                if source_type == "aws":
                     next_source_path = (
                         f"s3://{self.config.source_bucket}/{date_str}/{cycle_str}z/ifs/{self.config.resolution}/{product_name}/"
                         f"{date_str}{cycle_str}0000-{next_lead_time}h-{product_name}-{product_suffix}.grib2"
                     )
                 else:
+                    # GCS official bucket pattern
                     next_source_path = (
-                        f"gs://{self.config.source_bucket}/ecmwf/{product_type}/"
-                        f"{date_str}/{cycle_str}/{self.config.resolution}/"
-                        f"ecmwf.{product_type}.{cycle_str}z.{self.config.resolution}.f{lead_str}.grib"
+                        f"gs://{self.config.source_bucket}/{date_str}/{cycle_str}z/ifs/{self.config.resolution}/{product_name}/"
+                        f"{date_str}{cycle_str}0000-{next_lead_time}h-{product_name}-{product_suffix}.grib2"
                     )
 
             from nwpio.sources import GribFileSpec

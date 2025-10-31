@@ -166,6 +166,27 @@ Run with:
 nwpio run --config config-multi.yaml --max-workers 8
 ```
 
+#### ECMWF Source Selection
+ECMWF data is available from two sources. Simply specify `source_type` to choose:
+
+```yaml
+# Use GCS (Google Cloud Storage) - Official ECMWF bucket (default)
+download:
+  product: ecmwf-hres
+  resolution: 0p25
+  source_type: gcs  # Uses ecmwf-open-data bucket (default)
+  max_lead_time: 120
+
+# Use AWS S3 - Alternative source
+download:
+  product: ecmwf-hres
+  resolution: 0p25
+  source_type: aws  # Uses ecmwf-forecasts bucket
+  max_lead_time: 120
+```
+
+The `source_type` defaults to `gcs`. The appropriate bucket is automatically selected based on the product and source type. You can override with a custom `source_bucket` if needed.
+
 ## Supported Products
 
 ### GFS (Global Forecast System)
@@ -178,6 +199,9 @@ nwpio run --config config-multi.yaml --max-workers 8
 - Resolutions: 0p1 (0.1°), 0p25 (0.25°)
 - Cycles: 00z, 12z
 - Lead times: Up to 240 hours (HRES), 360 hours (ENS)
+- Sources:
+  - **GCS**: `gs://ecmwf-open-data` (official ECMWF bucket)
+  - **AWS**: `s3://ecmwf-forecasts` (alternative source)
 
 ## Architecture
 

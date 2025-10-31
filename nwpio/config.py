@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class DownloadConfig(BaseModel):
@@ -21,7 +21,16 @@ class DownloadConfig(BaseModel):
         description="Forecast initialization time (cycle). Can be set via CLI --cycle or $CYCLE environment variable.",
     )
     max_lead_time: int = Field(description="Maximum lead time in hours", gt=0)
-    source_bucket: str = Field(description="Source GCS bucket containing GRIB files")
+    source_bucket: Optional[str] = Field(
+        default=None,
+        description="Source bucket name containing GRIB files. If not specified, uses default bucket for the product. "
+        "GFS: 'global-forecast-system', ECMWF: 'ecmwf-open-data' (gcs) or 'ecmwf-forecasts' (aws)",
+    )
+    source_type: Optional[Literal["gcs", "aws"]] = Field(
+        default="gcs",
+        description="Source type for ECMWF data: 'gcs' (default, uses ecmwf-open-data) or 'aws' (uses ecmwf-forecasts). "
+        "Only relevant for ECMWF products. GFS always uses GCS.",
+    )
     destination_bucket: Optional[str] = Field(
         default=None,
         description="Destination GCS bucket for downloaded files (if None, downloads to local)",
@@ -39,6 +48,25 @@ class DownloadConfig(BaseModel):
         description="Validate all files are available before starting download. "
         "Raises exception if files are missing (fail fast for retry logic).",
     )
+
+    @model_validator(mode='after')
+    def set_default_source_bucket(self) -> 'DownloadConfig':
+        """Set default source bucket based on product and source_type if not specified."""
+        if self.source_bucket is not None:
+            return self
+        
+        # Default buckets for each product
+        if self.product == "gfs":
+            self.source_bucket = "global-forecast-system"
+        elif self.product in ["ecmwf-hres", "ecmwf-ens"]:
+            if self.source_type == "aws":
+                self.source_bucket = "ecmwf-forecasts"
+            else:  # gcs (default)
+                self.source_bucket = "ecmwf-open-data"
+        else:
+            raise ValueError(f"Unknown product: {self.product}, cannot determine default source bucket")
+        
+        return self
 
     @field_validator("cycle")
     @classmethod

@@ -2,12 +2,12 @@ cleanup_grib: false
 
 download:
   destination_bucket: null
-  local_download_dir: /tmp/nwp-data
+  local_download_dir: /tmp/nwp-data-gcs
   max_lead_time: 7
   overwrite: false
   product: ecmwf-hres
   resolution: 0p25
-  source_type: aws  # Uses ecmwf-forecasts bucket
+  source_type: gcs  # Uses ecmwf-open-data bucket (default)
   validate_before_download: true
 
 # process:
