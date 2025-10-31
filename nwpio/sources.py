@@ -162,7 +162,7 @@ class ECMWFSource(DataSource):
     def __init__(self, *args, source_type=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.is_ensemble = self.product == "ecmwf-ens"
-        
+
         # Determine source type
         if source_type:
             self.source_type = source_type
@@ -331,7 +331,9 @@ class ECMWFSource(DataSource):
             # If listing fails, fall back to generating expected files
             import logging
 
-            logging.warning(f"Failed to list GCS files, falling back to generation: {e}")
+            logging.warning(
+                f"Failed to list GCS files, falling back to generation: {e}"
+            )
             return self._generate_gcs_official_files(
                 date_str, cycle_str, product_type, product_name, product_suffix
             )

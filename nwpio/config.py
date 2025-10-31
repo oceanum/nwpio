@@ -49,12 +49,12 @@ class DownloadConfig(BaseModel):
         "Raises exception if files are missing (fail fast for retry logic).",
     )
 
-    @model_validator(mode='after')
-    def set_default_source_bucket(self) -> 'DownloadConfig':
+    @model_validator(mode="after")
+    def set_default_source_bucket(self) -> "DownloadConfig":
         """Set default source bucket based on product and source_type if not specified."""
         if self.source_bucket is not None:
             return self
-        
+
         # Default buckets for each product
         if self.product == "gfs":
             self.source_bucket = "global-forecast-system"
@@ -64,8 +64,10 @@ class DownloadConfig(BaseModel):
             else:  # gcs (default)
                 self.source_bucket = "ecmwf-open-data"
         else:
-            raise ValueError(f"Unknown product: {self.product}, cannot determine default source bucket")
-        
+            raise ValueError(
+                f"Unknown product: {self.product}, cannot determine default source bucket"
+            )
+
         return self
 
     @field_validator("cycle")

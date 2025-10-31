@@ -101,7 +101,7 @@ class GribDownloader:
                 date_str = self.config.cycle.strftime("%Y%m%d")
                 lead_str = f"{next_lead_time:03d}"
                 product_type = "ens" if "ens" in self.config.product else "hres"
-                
+
                 # Determine source type
                 source_type = self.config.source_type
                 if not source_type:
@@ -252,6 +252,12 @@ class GribDownloader:
             List of downloaded file paths
         """
         file_specs = self.data_source.get_file_list()
+
+        # Log source information
+        source_protocol = (
+            "GCS" if file_specs[0].source_path.startswith("gs://") else "S3"
+        )
+        logger.info(f"Downloading from {source_protocol}: {self.config.source_bucket}")
         logger.info(f"Found {len(file_specs)} files to download")
 
         downloaded_files = []

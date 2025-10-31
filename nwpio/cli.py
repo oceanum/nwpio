@@ -367,6 +367,9 @@ def run(
             f"Product: {workflow_config.download.product} {workflow_config.download.resolution}"
         )
         logger.info(f"Max lead time: {workflow_config.download.max_lead_time}h")
+        logger.info(
+            f"Source: {workflow_config.download.source_type.upper()} (bucket: {workflow_config.download.source_bucket})"
+        )
 
         downloaded_files = []
 
