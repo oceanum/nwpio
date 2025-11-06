@@ -51,10 +51,10 @@ def test_process_config_valid():
     config = ProcessConfig(
         grib_path="gs://bucket/grib/",
         variables=["t2m", "u10", "v10"],
-        output_path="gs://bucket/output.zarr",
+        zarr_path="gs://bucket/output.zarr",
     )
     assert len(config.variables) == 3
-    assert config.write_local_first is False
+    assert config.write_local_first is True
 
 
 def test_workflow_config():
@@ -71,12 +71,12 @@ def test_workflow_config():
     process_config = ProcessConfig(
         grib_path="gs://bucket/grib/",
         variables=["t2m"],
-        output_path="gs://bucket/output.zarr",
+        zarr_path="gs://bucket/output.zarr",
     )
 
     workflow_config = WorkflowConfig(
         download=download_config,
-        process=process_config,
+        process=[process_config],  # process expects a list
         cleanup_grib=True,
     )
 
