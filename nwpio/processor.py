@@ -260,7 +260,7 @@ class GribProcessor:
 
         Returns:
             xarray Dataset or None if file should be skipped (no requested variables found)
-        
+
         Raises:
             Exception: Any errors during loading will propagate naturally
         """
@@ -330,7 +330,7 @@ class GribProcessor:
             available_vars = set(ds.data_vars)
             requested_vars = set(self.config.variables)
             found_vars = requested_vars & available_vars
-            
+
             if not found_vars:
                 logger.warning(
                     f"File {file_path}: None of the requested variables {requested_vars} "
@@ -427,7 +427,9 @@ class GribProcessor:
             elif isinstance(self.cycle, datetime):
                 dt = self.cycle
             else:
-                logger.warning(f"Invalid cycle type: {type(self.cycle)}, falling back to dataset time")
+                logger.warning(
+                    f"Invalid cycle type: {type(self.cycle)}, falling back to dataset time"
+                )
                 dt = None
         else:
             dt = None
