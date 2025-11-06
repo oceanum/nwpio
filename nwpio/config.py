@@ -38,8 +38,8 @@ class DownloadConfig(BaseModel):
     destination_prefix: Optional[str] = Field(
         default=None, description="Optional prefix for destination paths"
     )
-    local_download_dir: Optional[str] = Field(
-        default=None,
+    local_download_dir: Path = Field(
+        default=Path("/tmp/nwp-data"),
         description="Local directory to download files to (if destination_bucket is None)",
     )
     overwrite: bool = Field(default=False, description="Overwrite existing files")

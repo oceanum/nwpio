@@ -387,7 +387,7 @@ class GribProcessor:
         - {timestamp} -> custom format from config
 
         Args:
-            dataset: xarray Dataset (used to extract time information)
+            dataset: xarray Dataset (used to extract time information if cycle not provided)
 
         Returns:
             Formatted zarr path
@@ -398,15 +398,29 @@ class GribProcessor:
         if "{" not in zarr_path:
             return zarr_path
 
-        # Extract first time from dataset for timestamp
-        if "time" in dataset.coords:
-            first_time = dataset.time.values[0]
-            # Convert numpy datetime64 to Python datetime
-            import pandas as pd
-            import re
+        import pandas as pd
+        import re
+        from datetime import datetime
 
+        # Determine which datetime to use for formatting
+        if self.cycle:
+            # Use the cycle time (forecast initialization time) if provided
+            if isinstance(self.cycle, str):
+                dt = datetime.fromisoformat(self.cycle)
+            elif isinstance(self.cycle, datetime):
+                dt = self.cycle
+            else:
+                logger.warning(f"Invalid cycle type: {type(self.cycle)}, falling back to dataset time")
+                dt = None
+        else:
+            dt = None
+
+        # Fallback to dataset's first time if cycle not provided
+        if dt is None and "time" in dataset.coords:
+            first_time = dataset.time.values[0]
             dt = pd.Timestamp(first_time).to_pydatetime()
 
+        if dt is not None:
             # Handle {cycle:...} format strings
             # Find all {cycle:format} patterns and replace them
             cycle_pattern = r"\{cycle:([^}]+)\}"
