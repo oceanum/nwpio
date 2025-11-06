@@ -3,7 +3,7 @@ cleanup_grib: false
 download:
   destination_bucket: null
   local_download_dir: /tmp/nwp-data-gcs
-  max_lead_time: 7
+  max_lead_time: 13
   overwrite: false
   product: ecmwf-hres
   resolution: 0p25
@@ -12,7 +12,7 @@ download:
 
 process:
   - variables: [t2m]
-    filter_by_keys: {typeOfLevel: heightAboveGround, level: 2}
+    filter_by_keys: {typeOfLevel: heightAboveGround, level: 2, stepType: instant}
     zarr_path: gs://oceanum-prod-flush-3m/ecmwf/open-data/t2m-glob-0p25/ecmwf-t2m-glob-0p25-{cycle:%Y%m%dT%H}.zarr
     max_grib_workers: 4
     max_upload_workers: 4

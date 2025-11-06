@@ -60,12 +60,9 @@ class GribProcessor:
             # Sequential loading
             datasets = []
             for grib_file in tqdm(grib_files, desc="Loading GRIB files"):
-                try:
-                    ds = self._load_grib_file(grib_file)
-                    if ds is not None:
-                        datasets.append(ds)
-                except Exception as e:
-                    raise RuntimeError(f"Failed to load {grib_file}: {e}")
+                ds = self._load_grib_file(grib_file)
+                if ds is not None:
+                    datasets.append(ds)
 
         if not datasets:
             raise ValueError("No datasets could be loaded from GRIB files")
@@ -81,7 +78,15 @@ class GribProcessor:
         missing_vars = requested_vars - available_vars
 
         if missing_vars:
-            logger.warning(f"Variables not found in GRIB files: {missing_vars}")
+            error_msg = (
+                f"Variables not found in GRIB files: {missing_vars}\n"
+                f"Available variables: {available_vars}\n"
+                f"This may be caused by:\n"
+                f"  1. Incorrect filter_by_keys (e.g., wrong typeOfLevel or level)\n"
+                f"  2. Variables not present in all GRIB files (check lead times)\n"
+                f"  3. cfgrib skipping variables due to conflicting metadata (check logs above)"
+            )
+            raise ValueError(error_msg)
 
         vars_to_extract = list(requested_vars & available_vars)
         if not vars_to_extract:
@@ -254,75 +259,87 @@ class GribProcessor:
             file_path: Path to GRIB file
 
         Returns:
-            xarray Dataset or None if loading fails
+            xarray Dataset or None if file should be skipped (no requested variables found)
+        
+        Raises:
+            Exception: Any errors during loading will propagate naturally
         """
-        try:
-            # Build backend kwargs
-            backend_kwargs = {"indexpath": ""}  # Disable index caching
+        # Build backend kwargs
+        backend_kwargs = {"indexpath": ""}  # Disable index caching
 
-            if self.config.filter_by_keys:
-                backend_kwargs["filter_by_keys"] = self.config.filter_by_keys
+        if self.config.filter_by_keys:
+            backend_kwargs["filter_by_keys"] = self.config.filter_by_keys
 
-            # Load with cfgrib engine
-            # For GCS paths, we need to use fsspec to open the file
-            if is_gcs_path(file_path):
-                import tempfile
-                import shutil
+        # Load with cfgrib engine
+        # For GCS paths, we need to use fsspec to open the file
+        if is_gcs_path(file_path):
+            import tempfile
+            import shutil
 
-                # Download to temp file since cfgrib doesn't support GCS directly
-                fs = fsspec.filesystem("gs")
-                gcs_path = file_path.replace("gs://", "")
+            # Download to temp file since cfgrib doesn't support GCS directly
+            fs = fsspec.filesystem("gs")
+            gcs_path = file_path.replace("gs://", "")
 
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".grib") as tmp:
-                    with fs.open(gcs_path, "rb") as f:
-                        shutil.copyfileobj(f, tmp)
-                    tmp_path = tmp.name
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".grib") as tmp:
+                with fs.open(gcs_path, "rb") as f:
+                    shutil.copyfileobj(f, tmp)
+                tmp_path = tmp.name
 
-                try:
-                    ds = xr.open_dataset(
-                        tmp_path,
-                        engine="cfgrib",
-                        chunks="auto",
-                        backend_kwargs=backend_kwargs,
-                    )
-                    # Load into memory so we can delete the temp file
-                    ds = ds.load()
-                finally:
-                    import os
-
-                    os.unlink(tmp_path)
-            else:
+            try:
                 ds = xr.open_dataset(
-                    file_path,
+                    tmp_path,
                     engine="cfgrib",
                     chunks="auto",
                     backend_kwargs=backend_kwargs,
                 )
+                # Load into memory so we can delete the temp file
+                ds = ds.load()
+            finally:
+                import os
 
-            # Ensure time dimension exists and uses valid_time (forecast valid time)
-            # GRIB files have both 'time' (reference/cycle time) and 'valid_time' (forecast time)
-            # We want valid_time as our time dimension
-            if "valid_time" in ds.coords:
-                # Drop the reference time coordinate first if it exists as a non-dimension coord
-                if "time" in ds.coords and "time" not in ds.dims:
-                    ds = ds.drop_vars("time")
+                os.unlink(tmp_path)
+        else:
+            ds = xr.open_dataset(
+                file_path,
+                engine="cfgrib",
+                chunks="auto",
+                backend_kwargs=backend_kwargs,
+            )
 
-                # Use valid_time as the time dimension
-                if "valid_time" not in ds.dims:
-                    ds = ds.expand_dims("valid_time")
+        # Ensure time dimension exists and uses valid_time (forecast valid time)
+        # GRIB files have both 'time' (reference/cycle time) and 'valid_time' (forecast time)
+        # We want valid_time as our time dimension
+        if "valid_time" in ds.coords:
+            # Drop the reference time coordinate first if it exists as a non-dimension coord
+            if "time" in ds.coords and "time" not in ds.dims:
+                ds = ds.drop_vars("time")
 
-                # Rename to 'time' for consistency
-                ds = ds.rename({"valid_time": "time"})
-            elif "time" not in ds.dims:
-                # Fallback: if only 'time' exists, expand it as dimension
-                if "time" in ds.coords:
-                    ds = ds.expand_dims("time")
+            # Use valid_time as the time dimension
+            if "valid_time" not in ds.dims:
+                ds = ds.expand_dims("valid_time")
 
-            return ds
+            # Rename to 'time' for consistency
+            ds = ds.rename({"valid_time": "time"})
+        elif "time" not in ds.dims:
+            # Fallback: if only 'time' exists, expand it as dimension
+            if "time" in ds.coords:
+                ds = ds.expand_dims("time")
 
-        except Exception as e:
-            logger.error(f"Failed to load {file_path}: {e}")
-            return None
+        # Validate that at least one requested variable is present
+        if self.config.variables:
+            available_vars = set(ds.data_vars)
+            requested_vars = set(self.config.variables)
+            found_vars = requested_vars & available_vars
+            
+            if not found_vars:
+                logger.warning(
+                    f"File {file_path}: None of the requested variables {requested_vars} "
+                    f"found. Available: {available_vars}. "
+                    f"This file will be skipped."
+                )
+                return None
+
+        return ds
 
     def _format_grib_path(self) -> str:
         """
