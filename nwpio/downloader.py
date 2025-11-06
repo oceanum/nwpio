@@ -100,7 +100,6 @@ class GribDownloader:
                 cycle_str = f"{self.config.cycle.hour:02d}"
                 date_str = self.config.cycle.strftime("%Y%m%d")
                 lead_str = f"{next_lead_time:03d}"
-                product_type = "ens" if "ens" in self.config.product else "hres"
 
                 # Determine source type
                 source_type = self.config.source_type
