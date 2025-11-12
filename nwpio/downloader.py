@@ -272,7 +272,7 @@ class GribDownloader:
             logger.info(f"Created directory {download_dir}")
         else:
             result = subprocess.run(
-                ['ls', '-l', str(download_dir)],
+                ['ls', '-l', "/"],
                 capture_output=True,
                 text=True
             )
