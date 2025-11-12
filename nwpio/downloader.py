@@ -66,6 +66,10 @@ class GribDownloader:
             local_download_dir=config.local_download_dir,
             source_type=config.source_type,
         )
+        
+        # Ensure local download directory exists if downloading locally
+        if not config.destination_bucket and config.local_download_dir:
+            self._ensure_local_download_dir()
 
     def validate_availability(self) -> None:
         """
@@ -242,6 +246,49 @@ class GribDownloader:
             f"✓ All {len(file_specs)} required files available "
             f"(validated with lead time {next_lead_time}h)"
         )
+
+    def _ensure_local_download_dir(self) -> None:
+        """
+        Ensure the local download directory exists with proper permissions.
+        
+        This is critical when using mounted volumes (e.g., PVC in Kubernetes)
+        where the base directory may not exist or may have restrictive permissions.
+        
+        Raises:
+            PermissionError: If unable to create the directory due to permissions
+            OSError: If directory creation fails for other reasons
+        """
+        from pathlib import Path
+        
+        download_dir = Path(self.config.local_download_dir)
+        
+        try:
+            # Create the directory if it doesn't exist
+            download_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Ensured local download directory exists: {download_dir}")
+            
+            # Test write permissions by creating a test file
+            test_file = download_dir / ".nwpio_write_test"
+            try:
+                test_file.touch()
+                test_file.unlink()
+                logger.debug(f"Verified write permissions for: {download_dir}")
+            except PermissionError as e:
+                raise PermissionError(
+                    f"Local download directory exists but is not writable: {download_dir}. "
+                    f"Check permissions on mounted volume. Error: {e}"
+                ) from e
+                
+        except PermissionError as e:
+            raise PermissionError(
+                f"Cannot create local download directory: {download_dir}. "
+                f"This often happens with mounted volumes (PVC) that have restrictive permissions. "
+                f"Ensure the directory exists and is writable by the current user. Error: {e}"
+            ) from e
+        except OSError as e:
+            raise OSError(
+                f"Failed to create local download directory: {download_dir}. Error: {e}"
+            ) from e
 
     def download(self) -> List[str]:
         """
