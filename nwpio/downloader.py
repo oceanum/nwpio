@@ -67,10 +67,6 @@ class GribDownloader:
             source_type=config.source_type,
         )
 
-        # Ensure local download directory exists if downloading locally
-        if not config.destination_bucket and config.local_download_dir:
-            self._ensure_local_download_dir()
-
     def validate_availability(self) -> None:
         """
         Validate that all required files are available in the source bucket.
@@ -246,43 +242,6 @@ class GribDownloader:
             f"✓ All {len(file_specs)} required files available "
             f"(validated with lead time {next_lead_time}h)"
         )
-
-    def _ensure_local_download_dir(self) -> None:
-        """
-        Ensure the local download directory exists with proper permissions.
-
-        This is critical when using mounted volumes (e.g., PVC in Kubernetes)
-        where the base directory may not exist or may have restrictive permissions.
-
-        Raises:
-            PermissionError: If unable to create the directory due to permissions
-            OSError: If directory creation fails for other reasons
-        """
-        from pathlib import Path
-        import subprocess
-
-        download_dir = Path(self.config.local_download_dir)
-
-        logger.info(f"Directory {download_dir} exists: {download_dir.exists()}")
-
-        if not download_dir.exists():
-            logger.info(f"Directory {download_dir} does not exist. Creating...")
-            download_dir.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Created directory {download_dir}")
-        else:
-            result = subprocess.run(["ls", "-l", "/"], capture_output=True, text=True)
-            logger.info(result.stdout)
-
-        test_file = download_dir / ".nwpio_write_test"
-        logger.info(
-            f"Testing write permissions for: {download_dir} by touching test file {test_file}"
-        )
-        test_file.touch()
-        logger.info(f"Verified write permissions for: {download_dir}")
-
-        logger.info(f"Testing unlinking test file {test_file}")
-        test_file.unlink()
-        logger.info(f"Verified unlinking test file {test_file}")
 
     def download(self) -> List[str]:
         """
