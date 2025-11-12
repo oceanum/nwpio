@@ -23,9 +23,9 @@ COPY README.md .
 # Install the package
 RUN pip install --no-cache-dir -e .
 
-# Create non-root user
-RUN useradd -m -u 1000 nwpuser && chown -R nwpuser:nwpuser /app
-USER nwpuser
+# # Create non-root user
+# RUN useradd -m -u 1000 nwpuser && chown -R nwpuser:nwpuser /app
+# USER nwpuser
 
 # Set entrypoint
 ENTRYPOINT ["nwpio"]
