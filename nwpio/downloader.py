@@ -259,6 +259,8 @@ class GribDownloader:
             OSError: If directory creation fails for other reasons
         """
         from pathlib import Path
+        import subprocess
+
         
         download_dir = Path(self.config.local_download_dir)
 
@@ -268,6 +270,13 @@ class GribDownloader:
             logger.info(f"Directory {download_dir} does not exist. Creating...")
             download_dir.mkdir(parents=True, exist_ok=True)
             logger.info(f"Created directory {download_dir}")
+        else:
+            result = subprocess.run(
+                ['ls', '-l', str(download_dir)],
+                capture_output=True,
+                text=True
+            )
+            logger.info(result.stdout)
 
         test_file = download_dir / ".nwpio_write_test"
         logger.info(f"Testing write permissions for: {download_dir} by touching test file {test_file}")
