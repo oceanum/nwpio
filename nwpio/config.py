@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from pathlib import Path
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -172,9 +172,11 @@ class WorkflowConfig(BaseModel):
     """Combined configuration for download and process workflow."""
 
     download: DownloadConfig = Field(description="Download configuration")
-    process: List[ProcessConfig] | None = Field(
+    process: Dict[str, ProcessConfig] | None = Field(
         default=None,
-        description="List of process configurations to run on downloaded GRIB files. Optional - can download without processing.",
+        description="Named process configurations to run on downloaded GRIB files. "
+        "Keys are task names that can be used with --process-task CLI option. "
+        "Optional - can download without processing.",
     )
     cleanup_grib: bool = Field(
         default=False, description="Delete GRIB files after all processing is complete"

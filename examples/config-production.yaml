@@ -20,7 +20,7 @@ download:
   # cycle: Set via --cycle or $CYCLE (required)
   # destination_bucket: null  # Download to local disk (faster processing)
   local_download_dir: /data
-  max_lead_time: 6  # 10 days (0-120h hourly, 123-240h 3-hourly)
+  max_lead_time: 3  # 10 days (0-120h hourly, 123-240h 3-hourly)
   overwrite: false
   product: gfs
   resolution: 0p25
@@ -28,37 +28,46 @@ download:
   # File availability validation (CRITICAL for production)
   validate_before_download: true  # Fail fast if files not ready (for retry logic)
 
-# process:
-#   # Wind 10m (u10 + v10)
-#   - filter_by_keys:
-#       typeOfLevel: heightAboveGround
-#       level: 10
-#     # grib_path is optional - auto-derived from download config if not specified
-#     # grib_path: /tmp/nwp-data/gfs/0p25/{cycle:%Y%m%d}/{cycle:%H}/
-#     zarr_path: gs://oceanum-data-dev/forecast/gfs_0p25_wind10m_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
-#     overwrite: true  # Delete existing Zarr before uploading new one
-#     write_local_first: true  # Write to local temp, then upload
-#     local_temp_dir: null  # Use system temp dir
-#     # GRIB loading configuration
-#     max_grib_workers: 8  # Parallel GRIB loading (4-8 recommended, 1 for sequential)
-#     clean_coords: true  # Remove GRIB metadata coords (keeps only time, lat, lon)
-#     rename_vars:  # Optional: rename variables before writing
-#       u10: ugrd10m
-#       v10: vgrd10m
-#       latitude: lat
-#       longitude: lon
-#     chunks:
-#       time: -1  # Single chunk for time (all timesteps together)
-#       lon: 128
-#       lat: 128
-#     # Upload configuration (robust handling of network issues)
-#     max_upload_workers: 8  # Parallel uploads
-#     upload_timeout: 600  # 10 minutes per file (increased from default 120s)
-#     upload_max_retries: 3  # Retry failed uploads with exponential backoff
-#     verify_upload: true  # Verify all files uploaded successfully
-#     variables:
-#       - u10
-#       - v10
+process:
+  # Wind 100m (u100 + v100)
+  wind100m:
+    variables: [u100, v100]
+    filter_by_keys: {typeOfLevel: heightAboveGround, level: 100}
+    zarr_path: gs://oceanum-data-dev/forecast/gfs_0p25_wind100m_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
+    max_grib_workers: 4
+    max_upload_workers: 4
+    rename_vars: {u100: ugrd100m, v100: vgrd100m, latitude: lat, longitude: lon}
+    chunks: {time: -1, lon: 128, lat: 128}
+
+  # Wind 10m (u10 + v10)
+  wind10m:
+    variables: [u10, v10]
+    filter_by_keys:
+      typeOfLevel: heightAboveGround
+      level: 10
+    # grib_path is optional - auto-derived from download config if not specified
+    # grib_path: /tmp/nwp-data/gfs/0p25/{cycle:%Y%m%d}/{cycle:%H}/
+    zarr_path: gs://oceanum-data-dev/forecast/gfs_0p25_wind10m_{cycle:%Y%m%d}_{cycle:%Hz}.zarr
+    overwrite: true  # Delete existing Zarr before uploading new one
+    write_local_first: true  # Write to local temp, then upload
+    local_temp_dir: null  # Use system temp dir
+    # GRIB loading configuration
+    max_grib_workers: 8  # Parallel GRIB loading (4-8 recommended, 1 for sequential)
+    clean_coords: true  # Remove GRIB metadata coords (keeps only time, lat, lon)
+    rename_vars:  # Optional: rename variables before writing
+      u10: ugrd10m
+      v10: vgrd10m
+      latitude: lat
+      longitude: lon
+    chunks:
+      time: -1  # Single chunk for time (all timesteps together)
+      lon: 128
+      lat: 128
+    # Upload configuration (robust handling of network issues)
+    max_upload_workers: 8  # Parallel uploads
+    upload_timeout: 600  # 10 minutes per file (increased from default 120s)
+    upload_max_retries: 3  # Retry failed uploads with exponential backoff
+    verify_upload: true  # Verify all files uploaded successfully
 
   # # Sea ice concentration (siconc)
   # - filter_by_keys:

@@ -328,6 +328,12 @@ def process(
     help="Skip process step",
 )
 @click.option(
+    "--process-task",
+    type=str,
+    multiple=True,
+    help="Process only specific task(s) by name. Can be specified multiple times. If not provided, runs all tasks.",
+)
+@click.option(
     "--max-workers",
     type=int,
     default=10,
@@ -338,6 +344,7 @@ def run(
     cycle: str,
     skip_download: bool,
     skip_process: bool,
+    process_task: tuple,
     max_workers: int,
 ):
     """Run complete workflow from configuration file."""
@@ -410,9 +417,24 @@ def run(
             else:
                 grib_dir = None
 
+            # Determine which tasks to run
+            all_tasks = workflow_config.process
+            if process_task:
+                # Validate requested tasks exist
+                invalid_tasks = set(process_task) - set(all_tasks.keys())
+                if invalid_tasks:
+                    available = ", ".join(all_tasks.keys())
+                    raise click.ClickException(
+                        f"Unknown process task(s): {', '.join(invalid_tasks)}. "
+                        f"Available tasks: {available}"
+                    )
+                tasks_to_run = {k: all_tasks[k] for k in process_task}
+            else:
+                tasks_to_run = all_tasks
+
             zarr_paths = []
-            for idx, process_config in enumerate(workflow_config.process, 1):
-                click.echo(f"=== Process Step {idx}/{len(workflow_config.process)} ===")
+            for idx, (task_name, process_config) in enumerate(tasks_to_run.items(), 1):
+                click.echo(f"=== Process Step {idx}/{len(tasks_to_run)}: {task_name} ===")
 
                 # Set grib_path if not provided
                 if not process_config.grib_path:
@@ -495,11 +517,13 @@ def init_config(product: str, resolution: str, output: Path):
             destination_bucket="your-bucket-name",
             destination_prefix="nwp-data/",
         ),
-        process=ProcessConfig(
-            grib_path="gs://your-bucket-name/nwp-data/",
-            variables=["t2m", "u10", "v10", "tp"],
-            zarr_path="gs://your-bucket-name/output.zarr",
-        ),
+        process={
+            "surface": ProcessConfig(
+                grib_path="gs://your-bucket-name/nwp-data/",
+                variables=["t2m", "u10", "v10", "tp"],
+                zarr_path="gs://your-bucket-name/output.zarr",
+            ),
+        },
         cleanup_grib=False,
     )
 
