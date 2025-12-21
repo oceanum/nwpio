@@ -43,6 +43,11 @@ class DownloadConfig(BaseModel):
         description="Local directory to download files to (if destination_bucket is None)",
     )
     overwrite: bool = Field(default=False, description="Overwrite existing files")
+    clean_destination: bool = Field(
+        default=True,
+        description="Remove existing GRIB files from destination before downloading. "
+        "Useful for forcing a fresh download of all files.",
+    )
     validate_before_download: bool = Field(
         default=True,
         description="Validate all files are available before starting download. "

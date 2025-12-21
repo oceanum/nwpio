@@ -11,7 +11,7 @@ import click
 from nwpio import GribDownloader, GribProcessor
 from nwpio.config import DownloadConfig, ProcessConfig, WorkflowConfig
 
-# Configure logging
+# Default logging configuration (can be overridden by --log-level)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -20,11 +20,33 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def set_log_level(level: str) -> None:
+    """Set logging level for all nwpio loggers."""
+    numeric_level = getattr(logging, level.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError(f"Invalid log level: {level}")
+    
+    # Set root logger level
+    logging.getLogger().setLevel(numeric_level)
+    # Set nwpio package logger level
+    logging.getLogger("nwpio").setLevel(numeric_level)
+
+
 @click.group()
 @click.version_option(version="0.1.0")
-def main():
+@click.option(
+    "--log-level",
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"], case_sensitive=False),
+    default="INFO",
+    envvar="LOG_LEVEL",
+    help="Set logging level. Reads from $LOG_LEVEL if not provided.",
+)
+@click.pass_context
+def main(ctx, log_level: str):
     """NWPIO - Download and process NWP forecast data."""
-    pass
+    set_log_level(log_level)
+    ctx.ensure_object(dict)
+    ctx.obj["log_level"] = log_level
 
 
 @main.command()
@@ -386,6 +408,12 @@ def run(
             downloader = GribDownloader(
                 workflow_config.download, max_workers=max_workers
             )
+
+            # Clean destination files if requested
+            if workflow_config.download.clean_destination:
+                click.echo("Cleaning existing destination files...")
+                deleted = downloader.clean_destination_files()
+                click.echo(f"Deleted {deleted} existing files")
 
             # Validate file availability before downloading
             if workflow_config.download.validate_before_download:

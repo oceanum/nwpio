@@ -67,6 +67,47 @@ class GribDownloader:
             source_type=config.source_type,
         )
 
+    def clean_destination_files(self) -> int:
+        """
+        Remove existing GRIB files from the destination that would be downloaded.
+
+        Returns:
+            Number of files deleted
+        """
+        file_specs = self.data_source.get_file_list()
+        deleted_count = 0
+
+        logger.info(f"Cleaning {len(file_specs)} destination files...")
+
+        for spec in file_specs:
+            if spec.destination_path.startswith("gs://"):
+                # GCS destination
+                dest_bucket, dest_blob = parse_gcs_path(spec.destination_path)
+                if gcs_blob_exists(dest_bucket, dest_blob, self.client):
+                    try:
+                        bucket = self.client.bucket(dest_bucket)
+                        blob = bucket.blob(dest_blob)
+                        blob.delete()
+                        deleted_count += 1
+                        logger.debug(f"Deleted: {spec.destination_path}")
+                    except Exception as e:
+                        logger.warning(f"Failed to delete {spec.destination_path}: {e}")
+            else:
+                # Local destination
+                from pathlib import Path
+
+                local_path = Path(spec.destination_path)
+                if local_path.exists():
+                    try:
+                        local_path.unlink()
+                        deleted_count += 1
+                        logger.debug(f"Deleted: {spec.destination_path}")
+                    except Exception as e:
+                        logger.warning(f"Failed to delete {spec.destination_path}: {e}")
+
+        logger.info(f"Deleted {deleted_count} existing files from destination")
+        return deleted_count
+
     def validate_availability(self) -> None:
         """
         Validate that all required files are available in the source bucket.
