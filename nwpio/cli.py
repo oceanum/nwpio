@@ -345,6 +345,11 @@ def process(
     help="Skip download step",
 )
 @click.option(
+    "--process-from-source",
+    is_flag=True,
+    help="Process GRIB files directly from source bucket (skips download, reads from source)",
+)
+@click.option(
     "--skip-process",
     is_flag=True,
     help="Skip process step",
@@ -365,6 +370,7 @@ def run(
     config: Path,
     cycle: str,
     skip_download: bool,
+    process_from_source: bool,
     skip_process: bool,
     process_task: tuple,
     max_workers: int,
@@ -401,6 +407,33 @@ def run(
         )
 
         downloaded_files = []
+        source_grib_files = None
+
+        # Determine processing mode
+        if process_from_source:
+            # Process directly from source bucket - skip download entirely
+            # Use data source to get the exact file list (respects max_lead_time)
+            skip_download = True
+            from nwpio.sources import create_data_source
+
+            data_source = create_data_source(
+                product=workflow_config.download.product,
+                resolution=workflow_config.download.resolution,
+                cycle=workflow_config.download.cycle,
+                max_lead_time=workflow_config.download.max_lead_time,
+                source_bucket=workflow_config.download.source_bucket,
+                destination_bucket=None,  # Not needed for source paths
+                source_type=workflow_config.download.source_type,
+            )
+            file_specs = data_source.get_file_list()
+            source_grib_files = [spec.source_path for spec in file_specs]
+
+            click.echo(f"=== Processing from Source ===")
+            click.echo(f"Source: {workflow_config.download.source_bucket}")
+            click.echo(f"Files to process: {len(source_grib_files)}")
+            logger.info("Processing directly from source bucket (no download)")
+            for f in source_grib_files:
+                logger.debug(f"Source file: {f}")
 
         # Download step
         if not skip_download:
@@ -429,21 +462,22 @@ def run(
         elif not workflow_config.process:
             click.echo("No process configuration found - download only\n")
         elif workflow_config.process:
-            # Determine GRIB path from downloaded files or config
-            if downloaded_files:
-                # Use the directory of downloaded files
-                from pathlib import Path
+            # Determine GRIB files to process
+            grib_file_list = None
+            grib_dir = None
 
-                first_file = downloaded_files[0]
-                if first_file.startswith("gs://"):
-                    # For GCS paths, extract directory manually
-                    grib_dir = "/".join(first_file.split("/")[:-1]) + "/"
-                else:
-                    # For local paths, use Path
-                    grib_dir = str(Path(first_file).parent)
-                click.echo(f"Processing GRIB files from: {grib_dir}\n")
+            if source_grib_files:
+                # Use explicit file list from source (respects max_lead_time)
+                grib_file_list = source_grib_files
+                click.echo(f"Processing {len(grib_file_list)} GRIB files from source\n")
+            elif downloaded_files:
+                # Use the downloaded files directly
+                grib_file_list = downloaded_files
+                click.echo(f"Processing {len(grib_file_list)} downloaded GRIB files\n")
             else:
-                grib_dir = None
+                # Fall back to directory-based discovery
+                grib_dir = workflow_config.get_default_grib_path()
+                click.echo(f"Processing GRIB files from: {grib_dir}\n")
 
             # Determine which tasks to run
             all_tasks = workflow_config.process
@@ -464,26 +498,16 @@ def run(
             for idx, (task_name, process_config) in enumerate(tasks_to_run.items(), 1):
                 click.echo(f"=== Process Step {idx}/{len(tasks_to_run)}: {task_name} ===")
 
-                # Set grib_path if not provided
-                if not process_config.grib_path:
-                    if grib_dir:
-                        # Use directory from downloaded files
-                        process_config.grib_path = grib_dir
-                    else:
-                        # Derive from download config
-                        process_config.grib_path = (
-                            workflow_config.get_default_grib_path()
-                        )
-                        click.echo(
-                            f"Using default grib_path: {process_config.grib_path}"
-                        )
-                elif grib_dir:
-                    # Override explicit grib_path if we downloaded files
+                # Set grib_path for directory-based discovery (fallback)
+                if not grib_file_list and not process_config.grib_path:
                     process_config.grib_path = grib_dir
+                    click.echo(f"Using grib_path: {process_config.grib_path}")
 
-                # Pass cycle from download config for path formatting
+                # Pass cycle and explicit file list to processor
                 processor = GribProcessor(
-                    process_config, cycle=workflow_config.download.cycle
+                    process_config,
+                    cycle=workflow_config.download.cycle,
+                    grib_file_list=grib_file_list,
                 )
                 zarr_path = processor.process()
                 zarr_paths.append(zarr_path)

@@ -225,6 +225,38 @@ class WorkflowConfig(BaseModel):
             # Generic fallback
             return f"{base_path}/{product}/{resolution}/{{cycle:%Y%m%d}}/{{cycle:%H}}/"
 
+    def get_source_grib_path(self) -> str:
+        """
+        Get the GRIB path pointing directly to the source bucket.
+
+        This allows processing GRIB files directly from the source (e.g., GCS public bucket)
+        without first copying them to a destination bucket.
+
+        Returns:
+            Source GRIB path with cycle placeholders
+        """
+        product = self.download.product
+        resolution = self.download.resolution
+        source_bucket = self.download.source_bucket
+        source_type = self.download.source_type or "gcs"
+
+        # Determine protocol
+        protocol = "s3" if source_type == "aws" else "gs"
+
+        # Construct path based on product
+        if product == "gfs":
+            # GFS pattern: gs://global-forecast-system/gfs.YYYYMMDD/HH/atmos/
+            return f"{protocol}://{source_bucket}/gfs.{{cycle:%Y%m%d}}/{{cycle:%H}}/atmos/"
+        elif "ecmwf" in product:
+            # ECMWF pattern: gs://ecmwf-open-data/YYYYMMDD/HHz/ifs/0p25/oper/
+            if "ens" in product:
+                product_name = "enfo"
+            else:
+                product_name = "oper"
+            return f"{protocol}://{source_bucket}/{{cycle:%Y%m%d}}/{{cycle:%H}}z/ifs/{resolution}/{product_name}/"
+        else:
+            raise ValueError(f"Unknown product: {product}")
+
     @classmethod
     def from_yaml(cls, path: Path) -> "WorkflowConfig":
         """Load configuration from YAML file."""

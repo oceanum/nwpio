@@ -17,19 +17,29 @@ logger = logging.getLogger(__name__)
 class GribProcessor:
     """Process GRIB files and convert to Zarr."""
 
-    def __init__(self, config: ProcessConfig, cycle: Optional[str] = None):
+    def __init__(
+        self,
+        config: ProcessConfig,
+        cycle: Optional[str] = None,
+        grib_file_list: Optional[List[str]] = None,
+    ):
         """
         Initialize processor.
 
         Args:
             config: Process configuration
             cycle: Optional cycle datetime for path formatting
+            grib_file_list: Optional explicit list of GRIB file paths to process.
+                           If provided, overrides grib_path discovery.
         """
         self.config = config
         self.cycle = cycle
+        self.grib_file_list = grib_file_list
         logger.debug(
             f"GribProcessor initialized with cycle: {cycle} (type: {type(cycle)})"
         )
+        if grib_file_list:
+            logger.debug(f"Using explicit file list with {len(grib_file_list)} files")
 
     def process(self) -> str:
         """
@@ -38,8 +48,11 @@ class GribProcessor:
         Returns:
             Path to output Zarr archive
         """
-        formatted_path = self._format_grib_path()
-        logger.info(f"Processing GRIB files from {formatted_path}")
+        if self.grib_file_list:
+            logger.info(f"Processing {len(self.grib_file_list)} GRIB files from explicit list")
+        else:
+            formatted_path = self._format_grib_path()
+            logger.info(f"Processing GRIB files from {formatted_path}")
         logger.info(f"Extracting variables: {', '.join(self.config.variables)}")
 
         # Find all GRIB files
@@ -47,7 +60,10 @@ class GribProcessor:
         logger.info(f"Found {len(grib_files)} GRIB files")
 
         if not grib_files:
-            raise ValueError(f"No GRIB files found at {formatted_path}")
+            if self.grib_file_list:
+                raise ValueError("Explicit grib_file_list was empty")
+            else:
+                raise ValueError(f"No GRIB files found at {self._format_grib_path()}")
 
         # Load and process GRIB files
         if self.config.max_grib_workers > 1:
@@ -148,9 +164,17 @@ class GribProcessor:
         """
         Find all GRIB files in the specified path.
 
+        If an explicit grib_file_list was provided at initialization,
+        returns that list instead of discovering files.
+
         Returns:
             List of GRIB file paths
         """
+        # Use explicit file list if provided
+        if self.grib_file_list:
+            logger.info(f"Using explicit file list: {len(self.grib_file_list)} files")
+            return self.grib_file_list
+
         grib_path = self._format_grib_path()
 
         if not grib_path:
