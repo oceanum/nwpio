@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional
 
 import fsspec
 import xarray as xr
@@ -50,7 +50,9 @@ class GribProcessor:
             Path to output Zarr archive
         """
         if self.grib_file_list:
-            logger.info(f"Processing {len(self.grib_file_list)} GRIB files from explicit list")
+            logger.info(
+                f"Processing {len(self.grib_file_list)} GRIB files from explicit list"
+            )
         else:
             formatted_path = self._format_grib_path()
             logger.info(f"Processing GRIB files from {formatted_path}")
@@ -632,9 +634,11 @@ class GribProcessor:
                 zmetadata_file = f
             else:
                 zarr_files.append(f)
-        
+
         total_files = len(all_files)
-        logger.info(f"Uploading {total_files} files (.zmetadata will be uploaded last)...")
+        logger.info(
+            f"Uploading {total_files} files (.zmetadata will be uploaded last)..."
+        )
 
         from tqdm import tqdm
 
@@ -704,7 +708,9 @@ class GribProcessor:
 
                 # Report failed uploads before attempting .zmetadata
                 if failed_uploads:
-                    error_summary = "\n".join([f"  - {f}: {err}" for f, err in failed_uploads])
+                    error_summary = "\n".join(
+                        [f"  - {f}: {err}" for f, err in failed_uploads]
+                    )
                     raise RuntimeError(
                         f"Failed to upload {len(failed_uploads)}/{total_files} files:\n{error_summary}"
                     )
@@ -712,11 +718,11 @@ class GribProcessor:
                 # Upload .zmetadata last to mark archive as finalised
                 if zmetadata_file:
                     logger.info("Uploading .zmetadata (finalising archive)...")
-                    blob_name, success, error_msg = upload_file_with_retry(zmetadata_file)
+                    blob_name, success, error_msg = upload_file_with_retry(
+                        zmetadata_file
+                    )
                     if not success:
-                        raise RuntimeError(
-                            f"Failed to upload .zmetadata: {error_msg}"
-                        )
+                        raise RuntimeError(f"Failed to upload .zmetadata: {error_msg}")
                     pbar.update(1)
 
         # Verify upload if enabled

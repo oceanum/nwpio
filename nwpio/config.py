@@ -246,7 +246,9 @@ class WorkflowConfig(BaseModel):
         # Construct path based on product
         if product == "gfs":
             # GFS pattern: gs://global-forecast-system/gfs.YYYYMMDD/HH/atmos/
-            return f"{protocol}://{source_bucket}/gfs.{{cycle:%Y%m%d}}/{{cycle:%H}}/atmos/"
+            return (
+                f"{protocol}://{source_bucket}/gfs.{{cycle:%Y%m%d}}/{{cycle:%H}}/atmos/"
+            )
         elif "ecmwf" in product:
             # ECMWF pattern: gs://ecmwf-open-data/YYYYMMDD/HHz/ifs/0p25/oper/
             if "ens" in product:

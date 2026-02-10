@@ -1,11 +1,9 @@
 """Tests for processor module."""
 
-import tempfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import numpy as np
-import pytest
 import xarray as xr
 import zarr
 
@@ -67,7 +65,9 @@ class TestZarrConsolidation:
 
         # Open with consolidated metadata and verify it works
         store = zarr.open(str(zarr_path), mode="r")
-        assert "wind_speed" in store, "Variable should be accessible via consolidated store"
+        assert "wind_speed" in store, (
+            "Variable should be accessible via consolidated store"
+        )
 
     def test_write_zarr_with_consolidation_can_be_opened_by_xarray(self, tmp_path):
         """Test that zarr written with consolidation can be opened by xarray."""
@@ -200,7 +200,9 @@ class TestGCSUploadOrder:
             mock_client = MagicMock()
             mock_bucket = MagicMock()
             mock_blob = MagicMock()
-            mock_blob.upload_from_filename = lambda f, **kw: upload_order.append(Path(f).name)
+            mock_blob.upload_from_filename = lambda f, **kw: upload_order.append(
+                Path(f).name
+            )
             mock_bucket.blob.return_value = mock_blob
             mock_client.bucket.return_value = mock_bucket
             mock_get_client.return_value = mock_client
@@ -209,7 +211,9 @@ class TestGCSUploadOrder:
 
         # Verify .zmetadata was uploaded last
         assert len(upload_order) > 0, "Should have uploaded files"
-        assert upload_order[-1] == ".zmetadata", f".zmetadata should be last, got order: {upload_order}"
+        assert upload_order[-1] == ".zmetadata", (
+            f".zmetadata should be last, got order: {upload_order}"
+        )
 
     def test_upload_separates_zmetadata_from_parallel_batch(self, tmp_path):
         """Test that .zmetadata is not included in the parallel upload file list."""
@@ -244,31 +248,39 @@ class TestGCSUploadOrder:
             mock_client = MagicMock()
             mock_bucket = MagicMock()
             mock_blob = MagicMock()
-            
+
             def track_upload(filename, **kwargs):
                 nonlocal zmetadata_uploaded_separately
                 fname = Path(filename).name
                 if fname == ".zmetadata":
                     # Check that parallel batch is already complete
                     zmetadata_uploaded_separately = len(parallel_batch_files) > 0
-            
+
             mock_blob.upload_from_filename = track_upload
             mock_bucket.blob.return_value = mock_blob
             mock_client.bucket.return_value = mock_bucket
             mock_get_client.return_value = mock_client
 
             # Patch ThreadPoolExecutor to track what gets submitted
-            original_executor = __import__('concurrent.futures').futures.ThreadPoolExecutor
-            
+            original_executor = __import__(
+                "concurrent.futures"
+            ).futures.ThreadPoolExecutor
+
             class TrackingExecutor(original_executor):
                 def submit(self, fn, f):
                     parallel_batch_files.append(f.name)
                     return super().submit(fn, f)
 
             with patch("concurrent.futures.ThreadPoolExecutor", TrackingExecutor):
-                processor._upload_zarr_to_gcs(local_zarr_path, "gs://test-bucket/test.zarr")
+                processor._upload_zarr_to_gcs(
+                    local_zarr_path, "gs://test-bucket/test.zarr"
+                )
 
         # .zmetadata should NOT be in the parallel batch
-        assert ".zmetadata" not in parallel_batch_files, ".zmetadata should not be in parallel batch"
+        assert ".zmetadata" not in parallel_batch_files, (
+            ".zmetadata should not be in parallel batch"
+        )
         # .zmetadata should be uploaded after parallel batch completes
-        assert zmetadata_uploaded_separately, ".zmetadata should be uploaded after parallel batch"
+        assert zmetadata_uploaded_separately, (
+            ".zmetadata should be uploaded after parallel batch"
+        )

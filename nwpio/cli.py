@@ -25,7 +25,7 @@ def set_log_level(level: str) -> None:
     numeric_level = getattr(logging, level.upper(), None)
     if not isinstance(numeric_level, int):
         raise ValueError(f"Invalid log level: {level}")
-    
+
     # Set root logger level
     logging.getLogger().setLevel(numeric_level)
     # Set nwpio package logger level
@@ -428,7 +428,7 @@ def run(
             file_specs = data_source.get_file_list()
             source_grib_files = [spec.source_path for spec in file_specs]
 
-            click.echo(f"=== Processing from Source ===")
+            click.echo("=== Processing from Source ===")
             click.echo(f"Source: {workflow_config.download.source_bucket}")
             click.echo(f"Files to process: {len(source_grib_files)}")
             logger.info("Processing directly from source bucket (no download)")
@@ -496,7 +496,9 @@ def run(
 
             zarr_paths = []
             for idx, (task_name, process_config) in enumerate(tasks_to_run.items(), 1):
-                click.echo(f"=== Process Step {idx}/{len(tasks_to_run)}: {task_name} ===")
+                click.echo(
+                    f"=== Process Step {idx}/{len(tasks_to_run)}: {task_name} ==="
+                )
 
                 # Set grib_path for directory-based discovery (fallback)
                 if not grib_file_list and not process_config.grib_path:
