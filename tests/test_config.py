@@ -76,7 +76,7 @@ def test_workflow_config():
 
     workflow_config = WorkflowConfig(
         download=download_config,
-        process=[process_config],  # process expects a list
+        process={"default": process_config},  # process expects a dict with named configs
         cleanup_grib=True,
     )
 

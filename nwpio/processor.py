@@ -2,10 +2,11 @@
 
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import fsspec
 import xarray as xr
+import zarr
 from tqdm import tqdm
 
 from nwpio.config import ProcessConfig
@@ -503,21 +504,40 @@ class GribProcessor:
         elif is_gcs_path(zarr_path):
             # Write directly to GCS
             logger.info("Writing directly to GCS...")
-            dataset.to_zarr(
-                zarr_path,
-                mode=mode,
-                consolidated=True,
-            )
+            self._write_zarr_with_consolidation(dataset, zarr_path, mode)
         else:
             # Write to local filesystem
             logger.info(f"Writing to local filesystem: {zarr_path}")
             local_path = Path(zarr_path)
             local_path.parent.mkdir(parents=True, exist_ok=True)
-            dataset.to_zarr(
-                local_path,
-                mode=mode,
-                consolidated=True,
-            )
+            self._write_zarr_with_consolidation(dataset, str(local_path), mode)
+
+    def _write_zarr_with_consolidation(
+        self, dataset: xr.Dataset, zarr_path: str, mode: str
+    ) -> None:
+        """
+        Write dataset to Zarr with manual metadata consolidation.
+
+        Writes the zarr archive with consolidate=False, then consolidates
+        metadata separately to ensure .zmetadata is the last file written.
+        This allows using .zmetadata presence as a marker that the archive
+        has been properly finalised.
+
+        Args:
+            dataset: xarray Dataset to write
+            zarr_path: Output path for Zarr archive (local or GCS)
+            mode: Write mode ('w' or 'w-')
+        """
+        # Write without consolidation
+        dataset.to_zarr(
+            zarr_path,
+            mode=mode,
+            consolidated=False,
+        )
+
+        # Consolidate metadata as a separate step (writes .zmetadata last)
+        logger.info("Consolidating zarr metadata...")
+        zarr.consolidate_metadata(zarr_path)
 
     def _write_local_then_upload(
         self, dataset: xr.Dataset, gcs_path: str, mode: str
@@ -561,11 +581,7 @@ class GribProcessor:
         try:
             # Write to local temp directory
             logger.info(f"Writing to local temp directory: {local_zarr_path}")
-            dataset.to_zarr(
-                str(local_zarr_path),
-                mode="w",  # Always overwrite in temp
-                consolidated=True,
-            )
+            self._write_zarr_with_consolidation(dataset, str(local_zarr_path), "w")
 
             # Delete existing Zarr if overwrite=true
             if mode == "w":
