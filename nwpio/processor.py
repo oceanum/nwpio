@@ -623,9 +623,18 @@ class GribProcessor:
         client = get_gcs_client()
         bucket = client.bucket(bucket_name)
 
-        # Get all files to upload
-        zarr_files = [f for f in local_zarr_path.rglob("*") if f.is_file()]
-        logger.info(f"Uploading {len(zarr_files)} files...")
+        # Get all files to upload, separating .zmetadata to upload last
+        all_files = [f for f in local_zarr_path.rglob("*") if f.is_file()]
+        zmetadata_file = None
+        zarr_files = []
+        for f in all_files:
+            if f.name == ".zmetadata":
+                zmetadata_file = f
+            else:
+                zarr_files.append(f)
+        
+        total_files = len(all_files)
+        logger.info(f"Uploading {total_files} files (.zmetadata will be uploaded last)...")
 
         from tqdm import tqdm
 
@@ -671,7 +680,7 @@ class GribProcessor:
 
             return blob_name, False, "Max retries exceeded"
 
-        # Upload files in parallel
+        # Upload files in parallel (excluding .zmetadata which is uploaded last)
         max_workers = self.config.max_upload_workers
         logger.info(
             f"Using {max_workers} parallel workers for upload (timeout: {self.config.upload_timeout}s)"
@@ -683,7 +692,7 @@ class GribProcessor:
                 executor.submit(upload_file_with_retry, f): f for f in zarr_files
             }
 
-            with tqdm(total=len(zarr_files), desc="Uploading to GCS") as pbar:
+            with tqdm(total=total_files, desc="Uploading to GCS") as pbar:
                 for future in as_completed(futures):
                     blob_name, success, error_msg = future.result()
                     if success:
@@ -693,12 +702,22 @@ class GribProcessor:
                         failed_uploads.append((local_file, error_msg))
                         pbar.update(1)
 
-        # Report failed uploads
-        if failed_uploads:
-            error_summary = "\n".join([f"  - {f}: {err}" for f, err in failed_uploads])
-            raise RuntimeError(
-                f"Failed to upload {len(failed_uploads)}/{len(zarr_files)} files:\n{error_summary}"
-            )
+                # Report failed uploads before attempting .zmetadata
+                if failed_uploads:
+                    error_summary = "\n".join([f"  - {f}: {err}" for f, err in failed_uploads])
+                    raise RuntimeError(
+                        f"Failed to upload {len(failed_uploads)}/{total_files} files:\n{error_summary}"
+                    )
+
+                # Upload .zmetadata last to mark archive as finalised
+                if zmetadata_file:
+                    logger.info("Uploading .zmetadata (finalising archive)...")
+                    blob_name, success, error_msg = upload_file_with_retry(zmetadata_file)
+                    if not success:
+                        raise RuntimeError(
+                            f"Failed to upload .zmetadata: {error_msg}"
+                        )
+                    pbar.update(1)
 
         # Verify upload if enabled
         if self.config.verify_upload:
