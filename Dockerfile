@@ -24,6 +24,11 @@ COPY README.md .
 # Install the package
 RUN pip install --no-cache-dir -e ".[datamesh]"
 
+# Use the system libeccodes instead of the eccodeslib/eckitlib wheels: with the
+# rasterio wheel (pulled in by oceanum) also loaded, the bundled native libraries
+# clash and the process dies with "double free or corruption" on exit
+RUN pip uninstall -y eccodeslib eckitlib
+
 # # Create non-root user
 # RUN useradd -m -u 1000 nwpuser && chown -R nwpuser:nwpuser /app
 # USER nwpuser
