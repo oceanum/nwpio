@@ -31,6 +31,11 @@ class DownloadConfig(BaseModel):
         description="Source type for ECMWF data: 'gcs' (default, uses ecmwf-open-data) or 'aws' (uses ecmwf-forecasts). "
         "Only relevant for ECMWF products. GFS always uses GCS.",
     )
+    file_type: Optional[Literal["sfc", "pl"]] = Field(
+        default=None,
+        description="ECMWF 0p1 only: which split file to fetch, 'sfc' (surface) or 'pl' (pressure levels). "
+        "Required for ECMWF 0p1, must be unset otherwise.",
+    )
     destination_bucket: Optional[str] = Field(
         default=None,
         description="Destination GCS bucket for downloaded files (if None, downloads to local)",
@@ -75,6 +80,21 @@ class DownloadConfig(BaseModel):
 
         return self
 
+    @model_validator(mode="after")
+    def validate_file_type(self) -> "DownloadConfig":
+        """ECMWF 0p1 files are split into -sfc and -pl, other products are not."""
+        split = self.product in ["ecmwf-hres", "ecmwf-ens"] and self.resolution == "0p1"
+        if split and self.file_type is None:
+            raise ValueError(
+                "ECMWF 0p1 data is split into surface and pressure level files, "
+                "set file_type to 'sfc' or 'pl'"
+            )
+        if not split and self.file_type is not None:
+            raise ValueError(
+                f"file_type is only valid for ECMWF 0p1, got {self.product} {self.resolution}"
+            )
+        return self
+
     @field_validator("cycle")
     @classmethod
     def validate_cycle(cls, v: datetime, info) -> datetime:
@@ -102,8 +122,8 @@ class DownloadConfig(BaseModel):
         product = info.data.get("product")
         if product == "gfs" and v > 384:
             raise ValueError(f"GFS max lead time is 384 hours, got {v}")
-        elif product == "ecmwf-hres" and v > 240:
-            raise ValueError(f"ECMWF HRES max lead time is 240 hours, got {v}")
+        elif product == "ecmwf-hres" and v > 360:
+            raise ValueError(f"ECMWF HRES max lead time is 360 hours, got {v}")
         elif product == "ecmwf-ens" and v > 360:
             raise ValueError(f"ECMWF ENS max lead time is 360 hours, got {v}")
         return v

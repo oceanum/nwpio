@@ -197,8 +197,10 @@ The `source_type` defaults to `gcs`. The appropriate bucket is automatically sel
 ### ECMWF
 - Products: HRES (High Resolution), ENS (Ensemble)
 - Resolutions: 0p1 (0.1°), 0p25 (0.25°)
+  - 0p1 is split into surface and pressure level files, set `file_type: sfc` or `file_type: pl`
 - Cycles: 00z, 12z
-- Lead times: Up to 240 hours (HRES), 360 hours (ENS)
+- Lead times: Up to 360 hours, 3-hourly to 144h then 6-hourly
+- Runs fail if any lead time up to `max_lead_time` is not yet published, so they can be retried
 - Sources:
   - **GCS**: `gs://ecmwf-open-data` (official ECMWF bucket)
   - **AWS**: `s3://ecmwf-forecasts` (alternative source)

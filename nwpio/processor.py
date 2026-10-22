@@ -80,16 +80,21 @@ class GribProcessor:
             datasets = []
             for grib_file in tqdm(grib_files, desc="Loading GRIB files"):
                 ds = self._load_grib_file(grib_file)
-                if ds is not None:
-                    datasets.append(ds)
+                if ds is None:
+                    raise RuntimeError(f"Failed to load GRIB file: {grib_file}")
+                datasets.append(ds)
 
         if not datasets:
             raise ValueError("No datasets could be loaded from GRIB files")
 
         # Combine datasets along time dimension
         logger.info("Combining datasets...")
+        # Sort before concat rather than sortby after, and release the per-file
+        # datasets, so the data is not held in memory three times over
+        datasets.sort(key=lambda ds: ds.time.values[0])
         combined_ds = xr.concat(datasets, dim="time")
-        combined_ds = combined_ds.sortby("time")
+        del datasets
+        self._check_times(combined_ds, len(grib_files))
 
         # Filter to requested variables
         available_vars = set(combined_ds.data_vars)
@@ -140,6 +145,21 @@ class GribProcessor:
 
         logger.info("Processing complete")
         return zarr_path
+
+    def _check_times(self, dataset: xr.Dataset, nfiles: int) -> None:
+        """Raise unless each GRIB file contributed exactly one distinct time.
+
+        Guards against duplicated or missing steps reaching the Zarr archive,
+        e.g. a file holding more or fewer messages than expected.
+        """
+        times = dataset.indexes["time"]
+        if times.has_duplicates:
+            dupes = sorted(set(times[times.duplicated()].astype(str)))
+            raise ValueError(f"Duplicate times in combined dataset: {dupes[:10]}")
+        if times.size != nfiles:
+            raise ValueError(
+                f"Expected {nfiles} times (one per GRIB file), got {times.size}"
+            )
 
     def _clean_dataset(self, dataset: xr.Dataset) -> xr.Dataset:
         """
@@ -301,18 +321,19 @@ class GribProcessor:
         # For GCS paths, we need to use fsspec to open the file
         if is_gcs_path(file_path):
             import tempfile
-            import shutil
 
-            # Download to temp file since cfgrib doesn't support GCS directly
-            fs = fsspec.filesystem("gs")
-            gcs_path = file_path.replace("gs://", "")
+            from nwpio.utils import get_gcs_client
+
+            # Download to temp file since cfgrib doesn't support GCS directly.
+            # download_to_filename validates the object checksum, so a truncated
+            # or corrupted transfer raises instead of yielding partial GRIB data
+            bucket_name, blob_name = parse_gcs_path(file_path)
+            blob = get_gcs_client().bucket(bucket_name).blob(blob_name)
 
             with tempfile.NamedTemporaryFile(delete=False, suffix=".grib") as tmp:
-                with fs.open(gcs_path, "rb") as f:
-                    shutil.copyfileobj(f, tmp)
                 tmp_path = tmp.name
-
             try:
+                blob.download_to_filename(tmp_path, checksum="crc32c")
                 ds = xr.open_dataset(
                     tmp_path,
                     engine="cfgrib",

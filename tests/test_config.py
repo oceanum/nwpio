@@ -84,3 +84,21 @@ def test_workflow_config():
 
     assert workflow_config.cleanup_grib is True
     assert workflow_config.download.product == "gfs"
+
+
+def test_ecmwf_0p1_requires_file_type():
+    """ECMWF 0p1 is split into sfc/pl files, so file_type is required."""
+    with pytest.raises(ValueError, match="set file_type"):
+        DownloadConfig(product="ecmwf-hres", resolution="0p1", max_lead_time=120)
+    config = DownloadConfig(
+        product="ecmwf-hres", resolution="0p1", file_type="sfc", max_lead_time=240
+    )
+    assert config.file_type == "sfc"
+
+
+def test_file_type_rejected_for_unsplit_products():
+    """file_type is only meaningful for ECMWF 0p1."""
+    with pytest.raises(ValueError, match="only valid for ECMWF 0p1"):
+        DownloadConfig(
+            product="ecmwf-hres", resolution="0p25", file_type="sfc", max_lead_time=120
+        )
