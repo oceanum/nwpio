@@ -187,6 +187,19 @@ download:
 
 The `source_type` defaults to `gcs`. The appropriate bucket is automatically selected based on the product and source type. You can override with a custom `source_bucket` if needed.
 
+#### Datamesh Updates
+Set `datamesh_id` on a process task to touch that Datamesh datasource after its Zarr archive is written. This updates the datasource's `updated` attribute, so pipelines listening to it are triggered:
+
+```yaml
+process:
+  wind10m:
+    variables: [u10, v10]
+    zarr_path: gs://your-bucket/wind10m_{cycle:%Y%m%dT%H}.zarr
+    datamesh_id: ecmwf_wind10m_0p1
+```
+
+This needs the `datamesh` extra (`pip install nwpio[datamesh]`) and a `DATAMESH_TOKEN` environment variable. The Docker image includes the extra.
+
 ## Supported Products
 
 ### GFS (Global Forecast System)

@@ -44,6 +44,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+datamesh = [
+    "oceanum",
+]
 dev = [
     "pytest",
     "pytest-cov",

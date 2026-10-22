@@ -6,6 +6,7 @@ FROM python:3.11-slim
 RUN apt-get update && apt-get install -y \
     libeccodes-dev \
     libeccodes-tools \
+    libexpat1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -21,7 +22,7 @@ COPY pyproject.toml .
 COPY README.md .
 
 # Install the package
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir -e ".[datamesh]"
 
 # # Create non-root user
 # RUN useradd -m -u 1000 nwpuser && chown -R nwpuser:nwpuser /app

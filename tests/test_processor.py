@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import numpy as np
+import pytest
 import xarray as xr
 import zarr
 
@@ -284,3 +285,56 @@ class TestGCSUploadOrder:
         assert zmetadata_uploaded_separately, (
             ".zmetadata should be uploaded after parallel batch"
         )
+
+
+class TestDatameshUpdate:
+    """Tests for touching the datamesh datasource after writing."""
+
+    @staticmethod
+    def _processor(tmp_path, datamesh_id):
+        config = ProcessConfig(
+            variables=["t2m"],
+            zarr_path=str(tmp_path / "out.zarr"),
+            max_grib_workers=1,
+            write_local_first=False,
+            datamesh_id=datamesh_id,
+        )
+        processor = GribProcessor(config=config, grib_file_list=["f0", "f1"])
+
+        def load(path):
+            time = np.datetime64("2026-10-20T12") + np.timedelta64(
+                3 * int(path[1]), "h"
+            )
+            return xr.Dataset(
+                {"t2m": (["time", "latitude", "longitude"], np.ones((1, 2, 2)))},
+                coords={"time": [time], "latitude": [0, 1], "longitude": [0, 1]},
+            )
+
+        processor._load_grib_file = load
+        return processor
+
+    @staticmethod
+    def _fake_oceanum(connector):
+        datamesh = MagicMock(Connector=MagicMock(return_value=connector))
+        return {"oceanum": MagicMock(datamesh=datamesh), "oceanum.datamesh": datamesh}
+
+    def test_updates_datamesh_after_writing(self, tmp_path):
+        connector = MagicMock()
+        zarr_path = tmp_path / "out.zarr"
+        connector.update_metadata.side_effect = lambda **kw: (
+            (zarr_path / ".zmetadata").exists() or pytest.fail("updated before write")
+        )
+        with patch.dict("sys.modules", self._fake_oceanum(connector)):
+            self._processor(tmp_path, "ecmwf_t2m_0p1").process()
+        connector.update_metadata.assert_called_once_with(datasource_id="ecmwf_t2m_0p1")
+
+    def test_no_datamesh_id_does_not_update(self, tmp_path):
+        connector = MagicMock()
+        with patch.dict("sys.modules", self._fake_oceanum(connector)):
+            self._processor(tmp_path, None).process()
+        connector.update_metadata.assert_not_called()
+
+    def test_missing_oceanum_package(self, tmp_path):
+        with patch.dict("sys.modules", {"oceanum": None, "oceanum.datamesh": None}):
+            with pytest.raises(ImportError, match=r"nwpio\[datamesh\]"):
+                self._processor(tmp_path, "ecmwf_t2m_0p1").process()
