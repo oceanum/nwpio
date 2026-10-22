@@ -143,8 +143,24 @@ class GribProcessor:
         logger.info(f"Writing to Zarr: {zarr_path}")
         self._write_zarr(combined_ds, zarr_path)
 
+        if self.config.datamesh_id:
+            self._update_datamesh(self.config.datamesh_id)
+
         logger.info("Processing complete")
         return zarr_path
+
+    def _update_datamesh(self, datamesh_id: str) -> None:
+        """Touch the datamesh datasource so its updated attribute changes."""
+        try:
+            from oceanum.datamesh import Connector
+        except ImportError as e:
+            raise ImportError(
+                "datamesh_id requires the oceanum package, install nwpio[datamesh]"
+            ) from e
+
+        logger.info(f"Updating datamesh datasource {datamesh_id}")
+        # No properties: this only bumps the datasource updated timestamp
+        Connector().update_metadata(datasource_id=datamesh_id)
 
     def _check_times(self, dataset: xr.Dataset, nfiles: int) -> None:
         """Raise unless each GRIB file contributed exactly one distinct time.

@@ -191,6 +191,12 @@ class ProcessConfig(BaseModel):
         default=None,
         description="Rename variables before writing (e.g., {'u10': 'u', 'v10': 'v'})",
     )
+    datamesh_id: Optional[str] = Field(
+        default=None,
+        description="Datamesh datasource ID to touch after writing, so its updated "
+        "attribute changes and tasks listening to it are triggered. Requires the "
+        "'datamesh' extra and the DATAMESH_TOKEN environment variable.",
+    )
 
 
 class WorkflowConfig(BaseModel):
