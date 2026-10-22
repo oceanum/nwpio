@@ -65,6 +65,7 @@ class GribDownloader:
             destination_prefix=config.destination_prefix or "",
             local_download_dir=config.local_download_dir,
             source_type=config.source_type,
+            file_type=config.file_type,
         )
 
     def clean_destination_files(self) -> int:
@@ -328,9 +329,12 @@ class GribDownloader:
         # Log summary
         logger.info(f"Successfully downloaded {len(downloaded_files)} files")
         if failed_files:
-            logger.warning(f"Failed to download {len(failed_files)} files")
+            logger.error(f"Failed to download {len(failed_files)} files")
             for failed in failed_files[:10]:  # Show first 10 failures
-                logger.warning(f"  - {failed}")
+                logger.error(f"  - {failed}")
+            raise RuntimeError(
+                f"Failed to download {len(failed_files)}/{len(file_specs)} GRIB files"
+            )
 
         return downloaded_files
 

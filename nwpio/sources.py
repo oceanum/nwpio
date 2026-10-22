@@ -159,9 +159,12 @@ class GFSSource(DataSource):
 class ECMWFSource(DataSource):
     """ECMWF data source configuration."""
 
-    def __init__(self, *args, source_type=None, **kwargs):
+    def __init__(self, *args, source_type=None, file_type=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.is_ensemble = self.product == "ecmwf-ens"
+        # 0p1 data is split into surface (-sfc) and pressure level (-pl) files
+        self.file_type = file_type
+        self.file_suffix = f"-{file_type}" if file_type else ""
 
         # Determine source type
         if source_type:
@@ -184,10 +187,28 @@ class ECMWFSource(DataSource):
         # Route to appropriate source based on source_type
         if self.source_type == "aws":
             # Discover files from AWS S3
-            return self._discover_s3_files(date_str, cycle_str, product_type)
+            files = self._discover_s3_files(date_str, cycle_str, product_type)
         else:
             # Use GCS pattern (official ecmwf-open-data bucket)
-            return self._discover_gcs_official_files(date_str, cycle_str, product_type)
+            files = self._discover_gcs_official_files(date_str, cycle_str, product_type)
+        self._check_complete(files)
+        return files
+
+    def _check_complete(self, files: List[GribFileSpec]) -> None:
+        """Raise if any expected lead time up to max_lead_time was not found.
+
+        Listing only returns what has been published so far, so without this
+        check a cycle that is still being uploaded would be silently truncated.
+        """
+        found = {f.lead_time for f in files}
+        missing = [lt for lt in self._generate_lead_times() if lt not in found]
+        if missing:
+            raise FileNotFoundError(
+                f"ECMWF {self.product} {self.resolution}{self.file_suffix} cycle "
+                f"{self.cycle:%Y%m%d %Hz} incomplete: {len(missing)} lead times "
+                f"missing up to {self.max_lead_time}h: {missing[:20]}"
+                f"{'...' if len(missing) > 20 else ''}"
+            )
 
     def _discover_s3_files(
         self, date_str: str, cycle_str: str, product_type: str
@@ -209,6 +230,9 @@ class ECMWFSource(DataSource):
         try:
             fs = fsspec.filesystem("s3", anon=True)
             all_files = fs.ls(s3_prefix)
+        except FileNotFoundError:
+            # Nothing published yet for this cycle
+            all_files = []
         except Exception as e:
             # If listing fails, fall back to generating expected files
             import logging
@@ -221,7 +245,7 @@ class ECMWFSource(DataSource):
         # Parse lead times from filenames
         # Pattern: YYYYMMDDHHmmss-Lh-product-suffix.grib2
         pattern = re.compile(
-            rf"{date_str}{cycle_str}0000-(\d+)h-{product_name}-{product_suffix}\.grib2$"
+            rf"{date_str}{cycle_str}0000-(\d+)h-{product_name}-{product_suffix}{self.file_suffix}\.grib2$"
         )
 
         files = []
@@ -242,13 +266,13 @@ class ECMWFSource(DataSource):
                         dest_path = (
                             f"gs://{self.destination_bucket}/{self.destination_prefix}"
                             f"ecmwf/{product_type}/{self.resolution}/{date_str}/{cycle_str}/"
-                            f"ecmwf.{product_type}.{cycle_str}z.{self.resolution}.f{lead_str}.grib"
+                            f"ecmwf.{product_type}.{cycle_str}z.{self.resolution}{self.file_suffix}.f{lead_str}.grib"
                         )
                     else:
                         dest_path = (
                             f"{self.local_download_dir}/ecmwf/{product_type}/{self.resolution}/"
                             f"{date_str}/{cycle_str}/"
-                            f"ecmwf.{product_type}.{cycle_str}z.{self.resolution}.f{lead_str}.grib"
+                            f"ecmwf.{product_type}.{cycle_str}z.{self.resolution}{self.file_suffix}.f{lead_str}.grib"
                         )
 
                     files.append(
@@ -279,20 +303,20 @@ class ECMWFSource(DataSource):
 
             source_path = (
                 f"s3://{self.source_bucket}/{date_str}/{cycle_str}z/ifs/{self.resolution}/{product_name}/"
-                f"{date_str}{cycle_str}0000-{lead_time}h-{product_name}-{product_suffix}.grib2"
+                f"{date_str}{cycle_str}0000-{lead_time}h-{product_name}-{product_suffix}{self.file_suffix}.grib2"
             )
 
             if self.destination_bucket:
                 dest_path = (
                     f"gs://{self.destination_bucket}/{self.destination_prefix}"
                     f"ecmwf/{product_type}/{self.resolution}/{date_str}/{cycle_str}/"
-                    f"ecmwf.{product_type}.{cycle_str}z.{self.resolution}.f{lead_str}.grib"
+                    f"ecmwf.{product_type}.{cycle_str}z.{self.resolution}{self.file_suffix}.f{lead_str}.grib"
                 )
             else:
                 dest_path = (
                     f"{self.local_download_dir}/ecmwf/{product_type}/{self.resolution}/"
                     f"{date_str}/{cycle_str}/"
-                    f"ecmwf.{product_type}.{cycle_str}z.{self.resolution}.f{lead_str}.grib"
+                    f"ecmwf.{product_type}.{cycle_str}z.{self.resolution}{self.file_suffix}.f{lead_str}.grib"
                 )
 
             files.append(
@@ -327,6 +351,9 @@ class ECMWFSource(DataSource):
         try:
             fs = fsspec.filesystem("gs")
             all_files = fs.ls(gcs_prefix)
+        except FileNotFoundError:
+            # Nothing published yet for this cycle
+            all_files = []
         except Exception as e:
             # If listing fails, fall back to generating expected files
             import logging
@@ -341,7 +368,7 @@ class ECMWFSource(DataSource):
         # Parse lead times from filenames
         # Pattern: YYYYMMDDHHmmss-Lh-product-suffix.grib2
         pattern = re.compile(
-            rf"{date_str}{cycle_str}0000-(\d+)h-{product_name}-{product_suffix}\.grib2$"
+            rf"{date_str}{cycle_str}0000-(\d+)h-{product_name}-{product_suffix}{self.file_suffix}\.grib2$"
         )
 
         files = []
@@ -362,13 +389,13 @@ class ECMWFSource(DataSource):
                         dest_path = (
                             f"gs://{self.destination_bucket}/{self.destination_prefix}"
                             f"ecmwf/{product_type}/{self.resolution}/{date_str}/{cycle_str}/"
-                            f"ecmwf.{product_type}.{cycle_str}z.{self.resolution}.f{lead_str}.grib"
+                            f"ecmwf.{product_type}.{cycle_str}z.{self.resolution}{self.file_suffix}.f{lead_str}.grib"
                         )
                     else:
                         dest_path = (
                             f"{self.local_download_dir}/ecmwf/{product_type}/{self.resolution}/"
                             f"{date_str}/{cycle_str}/"
-                            f"ecmwf.{product_type}.{cycle_str}z.{self.resolution}.f{lead_str}.grib"
+                            f"ecmwf.{product_type}.{cycle_str}z.{self.resolution}{self.file_suffix}.f{lead_str}.grib"
                         )
 
                     files.append(
@@ -400,20 +427,20 @@ class ECMWFSource(DataSource):
             # Pattern: gs://ecmwf-open-data/YYYYMMDD/HHz/ifs/0p25/oper/YYYYMMDDHHmmss-Lh-oper-fc.grib2
             source_path = (
                 f"gs://{self.source_bucket}/{date_str}/{cycle_str}z/ifs/{self.resolution}/{product_name}/"
-                f"{date_str}{cycle_str}0000-{lead_time}h-{product_name}-{product_suffix}.grib2"
+                f"{date_str}{cycle_str}0000-{lead_time}h-{product_name}-{product_suffix}{self.file_suffix}.grib2"
             )
 
             if self.destination_bucket:
                 dest_path = (
                     f"gs://{self.destination_bucket}/{self.destination_prefix}"
                     f"ecmwf/{product_type}/{self.resolution}/{date_str}/{cycle_str}/"
-                    f"ecmwf.{product_type}.{cycle_str}z.{self.resolution}.f{lead_str}.grib"
+                    f"ecmwf.{product_type}.{cycle_str}z.{self.resolution}{self.file_suffix}.f{lead_str}.grib"
                 )
             else:
                 dest_path = (
                     f"{self.local_download_dir}/ecmwf/{product_type}/{self.resolution}/"
                     f"{date_str}/{cycle_str}/"
-                    f"ecmwf.{product_type}.{cycle_str}z.{self.resolution}.f{lead_str}.grib"
+                    f"ecmwf.{product_type}.{cycle_str}z.{self.resolution}{self.file_suffix}.f{lead_str}.grib"
                 )
 
             files.append(
@@ -429,39 +456,17 @@ class ECMWFSource(DataSource):
 
     def _generate_lead_times(self) -> List[int]:
         """
-        Generate lead times for ECMWF with variable intervals.
+        Generate lead times for ECMWF open data, up to max_lead_time.
 
-        ECMWF Ensemble (ENS):
+        HRES (oper) and ENS (enfo) share the same output steps:
         - 0-144h: 3-hourly (0, 3, 6, ..., 144)
-        - 144-360h: 6-hourly (150, 156, ..., 360)
-
-        ECMWF HRES:
-        - 0-90h: hourly (0, 1, 2, ..., 90)
-        - 90-240h: 3-hourly (93, 96, ..., 240)
+        - 144-360h: 6-hourly (150, 156, ..., 360), 00z and 12z only
 
         Returns:
             List of lead times in hours
         """
-        if self.is_ensemble:
-            # Ensemble: 3-hourly up to 144h, then 6-hourly up to 360h
-            if self.max_lead_time <= 144:
-                return list(range(0, self.max_lead_time + 1, 3))
-            else:
-                # 3-hourly up to 144h
-                lead_times = list(range(0, 145, 3))
-                # 6-hourly from 150h onwards
-                lead_times.extend(range(150, min(self.max_lead_time + 1, 361), 6))
-                return lead_times
-        else:
-            # HRES: hourly up to 90h, then 3-hourly up to 240h
-            if self.max_lead_time <= 90:
-                return list(range(0, self.max_lead_time + 1, 1))
-            else:
-                # Hourly up to 90h
-                lead_times = list(range(0, 91, 1))
-                # 3-hourly from 93h onwards
-                lead_times.extend(range(93, min(self.max_lead_time + 1, 241), 3))
-                return lead_times
+        lead_times = list(range(0, 145, 3)) + list(range(150, 361, 6))
+        return [lt for lt in lead_times if lt <= self.max_lead_time]
 
     def get_next_lead_time(self) -> int:
         """Get the next lead time after max_lead_time for validation.
@@ -509,6 +514,7 @@ def create_data_source(
     destination_prefix: str = "",
     local_download_dir: str = None,
     source_type: str = None,
+    file_type: str = None,
 ) -> DataSource:
     """Factory function to create appropriate data source."""
     if product == "gfs":
@@ -533,6 +539,7 @@ def create_data_source(
             destination_prefix=destination_prefix,
             local_download_dir=local_download_dir,
             source_type=source_type,
+            file_type=file_type,
         )
     else:
         raise ValueError(f"Unknown product: {product}")

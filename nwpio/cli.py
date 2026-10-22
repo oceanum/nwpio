@@ -75,6 +75,12 @@ def main(ctx, log_level: str):
     help="Maximum lead time in hours",
 )
 @click.option(
+    "--file-type",
+    type=click.Choice(["sfc", "pl"]),
+    default=None,
+    help="ECMWF 0p1 only: surface (sfc) or pressure level (pl) files",
+)
+@click.option(
     "--source-bucket",
     type=str,
     required=True,
@@ -113,6 +119,7 @@ def download(
     resolution: str,
     cycle: str,
     max_lead_time: int,
+    file_type: Optional[str],
     source_bucket: str,
     dest_bucket: str,
     dest_prefix: str,
@@ -131,6 +138,7 @@ def download(
             resolution=resolution,
             cycle=cycle_time,
             max_lead_time=max_lead_time,
+            file_type=file_type,
             source_bucket=source_bucket,
             destination_bucket=dest_bucket,
             destination_prefix=dest_prefix,
@@ -424,6 +432,7 @@ def run(
                 source_bucket=workflow_config.download.source_bucket,
                 destination_bucket=None,  # Not needed for source paths
                 source_type=workflow_config.download.source_type,
+                file_type=workflow_config.download.file_type,
             )
             file_specs = data_source.get_file_list()
             source_grib_files = [spec.source_path for spec in file_specs]
