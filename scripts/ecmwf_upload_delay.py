@@ -57,14 +57,21 @@ def cycle_stats(
     suffix = f"-{file_type.value}" if file_type else ""
     pattern = re.compile(rf"{cycle:%Y%m%d%H}0000-(\d+)h-{stream}-\w+{suffix}\.grib2$")
     created = {}
-    for blob in client.list_blobs(bucket, prefix=prefix, fields="items(name,timeCreated),nextPageToken"):
+    for blob in client.list_blobs(
+        bucket, prefix=prefix, fields="items(name,timeCreated),nextPageToken"
+    ):
         match = pattern.search(blob.name)
         if match and int(match.group(1)) <= max_lead_time:
             created[int(match.group(1))] = blob.time_created
 
     expected = expected_lead_times(max_lead_time)
     missing = [lt for lt in expected if lt not in created]
-    row = {"cycle": cycle, "hour": f"{cycle:%H}z", "nfiles": len(created), "nmissing": len(missing)}
+    row = {
+        "cycle": cycle,
+        "hour": f"{cycle:%H}z",
+        "nfiles": len(created),
+        "nmissing": len(missing),
+    }
     if created:
         hours = lambda t: (t - cycle).total_seconds() / 3600  # noqa: E731
         row["first_h"] = hours(min(created.values()))
@@ -73,24 +80,43 @@ def cycle_stats(
 
 
 def main(
-    resolution: Annotated[str, typer.Argument(help="Resolution directory, e.g. 0p1 or 0p25")],
+    resolution: Annotated[
+        str, typer.Argument(help="Resolution directory, e.g. 0p1 or 0p25")
+    ],
     start_date: Annotated[str, typer.Option(help="First cycle date, YYYYMMDD")],
-    end_date: Annotated[str | None, typer.Option(help="Last cycle date, YYYYMMDD (default: today)")] = None,
-    file_type: Annotated[FileType | None, typer.Option(help="0p1 split file to check: sfc or pl")] = None,
-    stream: Annotated[str, typer.Option(help="Stream directory, e.g. oper or enfo")] = "oper",
-    cycles: Annotated[list[str], typer.Option("--cycle", help="Cycle hours to check, repeatable")] = ["00", "12"],
-    max_lead_time: Annotated[int, typer.Option(help="Last lead time the pipeline needs, hours")] = 240,
-    cron_delay: Annotated[float | None, typer.Option(help="Configured cron delay, hours, to compare against")] = None,
+    end_date: Annotated[
+        str | None, typer.Option(help="Last cycle date, YYYYMMDD (default: today)")
+    ] = None,
+    file_type: Annotated[
+        FileType | None, typer.Option(help="0p1 split file to check: sfc or pl")
+    ] = None,
+    stream: Annotated[
+        str, typer.Option(help="Stream directory, e.g. oper or enfo")
+    ] = "oper",
+    cycles: Annotated[
+        list[str], typer.Option("--cycle", help="Cycle hours to check, repeatable")
+    ] = ["00", "12"],
+    max_lead_time: Annotated[
+        int, typer.Option(help="Last lead time the pipeline needs, hours")
+    ] = 240,
+    cron_delay: Annotated[
+        float | None,
+        typer.Option(help="Configured cron delay, hours, to compare against"),
+    ] = None,
     bucket: Annotated[str, typer.Option(help="Source bucket")] = "ecmwf-open-data",
     workers: Annotated[int, typer.Option(help="Parallel cycle listings")] = 16,
-    output: Annotated[Path | None, typer.Option(help="Optional CSV with one row per cycle")] = None,
+    output: Annotated[
+        Path | None, typer.Option(help="Optional CSV with one row per cycle")
+    ] = None,
 ):
     """Report how long after cycle time each ECMWF open data cycle is complete."""
     start = datetime.strptime(start_date, "%Y%m%d").replace(tzinfo=timezone.utc)
     end = (
         datetime.strptime(end_date, "%Y%m%d").replace(tzinfo=timezone.utc)
         if end_date
-        else datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        else datetime.now(timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
     )
     cycle_times = [
         start + timedelta(days=d, hours=int(h))
@@ -101,7 +127,9 @@ def main(
     with ThreadPoolExecutor(workers) as pool:
         rows = list(
             pool.map(
-                lambda c: cycle_stats(client, bucket, c, resolution, stream, file_type, max_lead_time),
+                lambda c: cycle_stats(
+                    client, bucket, c, resolution, stream, file_type, max_lead_time
+                ),
                 cycle_times,
             )
         )
@@ -114,10 +142,16 @@ def main(
     df_ok = df.dropna(subset=["complete_h"])
 
     label = f"{resolution}{'-' + file_type.value if file_type else ''} {stream}"
-    typer.echo(f"{label}, lead times 0-{max_lead_time}h, cycles {df.cycle.min():%Y-%m-%d %Hz} to {df.cycle.max():%Y-%m-%d %Hz}")
-    typer.echo(f"  cycles: {len(df)} checked, {len(df_ok)} complete, {len(incomplete)} incomplete, {len(absent)} absent")
+    typer.echo(
+        f"{label}, lead times 0-{max_lead_time}h, cycles {df.cycle.min():%Y-%m-%d %Hz} to {df.cycle.max():%Y-%m-%d %Hz}"
+    )
+    typer.echo(
+        f"  cycles: {len(df)} checked, {len(df_ok)} complete, {len(incomplete)} incomplete, {len(absent)} absent"
+    )
     for _, r in incomplete.iterrows():
-        typer.echo(f"  incomplete: {r.cycle:%Y-%m-%d %Hz} ({r.nmissing} lead times missing)")
+        typer.echo(
+            f"  incomplete: {r.cycle:%Y-%m-%d %Hz} ({r.nmissing} lead times missing)"
+        )
     for _, r in absent.iterrows():
         typer.echo(f"  absent: {r.cycle:%Y-%m-%d %Hz}")
 
@@ -135,9 +169,13 @@ def main(
             line += f"  later than cron delay: {(d > cron_delay).sum()}"
         typer.echo(line)
     if cron_delay is not None:
-        late = df_ok[df_ok.complete_h > cron_delay].sort_values("complete_h", ascending=False)
+        late = df_ok[df_ok.complete_h > cron_delay].sort_values(
+            "complete_h", ascending=False
+        )
         for _, r in late.head(20).iterrows():
-            typer.echo(f"  late: {r.cycle:%Y-%m-%d %Hz} complete at +{fmt(r.complete_h)}")
+            typer.echo(
+                f"  late: {r.cycle:%Y-%m-%d %Hz} complete at +{fmt(r.complete_h)}"
+            )
     if output:
         df.to_csv(output, index=False)
         typer.echo(f"Per-cycle results saved to {output}")
