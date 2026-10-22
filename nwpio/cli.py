@@ -33,7 +33,7 @@ def set_log_level(level: str) -> None:
 
 
 @click.group()
-@click.version_option(version="0.3.0")
+@click.version_option(version="0.4.0")
 @click.option(
     "--log-level",
     type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"], case_sensitive=False),
