@@ -514,7 +514,7 @@ def create_data_source(
     destination_prefix: str = "",
     local_download_dir: str = None,
     source_type: str = None,
-    file_type: str = None,
+    file_type: str | None = None,
 ) -> DataSource:
     """Factory function to create appropriate data source."""
     if product == "gfs":
