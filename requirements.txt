@@ -1,7 +1,7 @@
 google-cloud-storage>=2.10.0
-xarray>=2023.1.0
+xarray>=2023.1.0,<2026.9  # 2026.9 breaks writing with zarr 2
 cfgrib>=0.9.10
-zarr>=2.16.0
+zarr>=2.16.0,<3
 click>=8.1.0
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
