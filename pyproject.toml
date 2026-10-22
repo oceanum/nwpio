@@ -28,7 +28,7 @@ classifiers = [
 
 dependencies = [
     "google-cloud-storage",
-    "xarray",
+    "xarray<2026.9",  # 2026.9 breaks writing with zarr 2
     "cfgrib",
     "zarr<3",
     "dask",
